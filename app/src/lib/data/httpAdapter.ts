@@ -1,97 +1,206 @@
 import type { LawleitApi } from "./api";
+import type {
+  CalendarEvent, Case, Contact, DocumentFile, Expense, Firm, Invoice,
+  Lead, MessageThread, Notification, Payment, ReportDef, Session, Task,
+  TimeEntry, TrustTransaction, User,
+} from "./types";
 
 /**
- * HTTP adapter — implementation skeleton for the real backend.
+ * HTTP adapter — full implementation of LawleitApi over REST.
  *
- * TODO(owner): implement each method as a fetch to your API, then swap the
- * adapter in src/lib/data/index.ts. The REST mapping for every method is
- * documented in docs/API_CONTRACT.md. Shapes come from src/lib/data/types.ts —
- * keep them and TypeScript will hold the boundary for you.
+ * Endpoint mapping: docs/API_CONTRACT.md (1:1). Works with the bundled
+ * reference backend (`backend/server.mjs` at the repo root) and with any
+ * backend that conforms to the contract.
+ *
+ * Auth: the server issues a session token on login/signup; it is sent as
+ * `Authorization: Bearer <token>` AND left to cookies (`credentials: include`)
+ * so either mechanism works. The token lives in sessionStorage for the tab's
+ * lifetime, mirroring the mock adapter's session scope.
  */
 const BASE = import.meta.env.VITE_API_BASE_URL ?? "/api/v1";
+const TOKEN_KEY = "lawleit.auth.token";
 
-async function http<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    credentials: "include",
-    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
-    ...init,
-  });
-  if (!res.ok) throw new Error(`${init?.method ?? "GET"} ${path} → ${res.status}`);
-  return (res.status === 204 ? (undefined as T) : ((await res.json()) as T));
+export class ApiError extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+    this.name = "ApiError";
+  }
 }
 
-const qs = (params: Record<string, string | number | undefined>) => {
-  const u = new URLSearchParams();
-  Object.entries(params).forEach(([k, v]) => v !== undefined && u.set(k, String(v)));
-  const s = u.toString();
-  return s ? `?${s}` : "";
-};
+let token: string | null = (() => {
+  try { return sessionStorage.getItem(TOKEN_KEY); } catch { return null; }
+})();
 
-/**
- * Every method below intentionally throws until implemented — fail loudly in
- * dev rather than silently pretending the backend exists.
- */
-class HttpAdapter implements LawleitApi {
-  private todo(method: string): never {
-    throw new Error(`httpAdapter.${method} not implemented — see docs/API_CONTRACT.md`);
+function setToken(next: string | null) {
+  token = next;
+  try {
+    if (next) sessionStorage.setItem(TOKEN_KEY, next);
+    else sessionStorage.removeItem(TOKEN_KEY);
+  } catch { /* storage unavailable — token stays in memory */ }
+}
+
+async function http<T>(
+  method: string,
+  path: string,
+  opts: { body?: unknown; query?: Record<string, string | number | undefined> } = {},
+): Promise<T> {
+  const url = new URL(`${BASE}${path}`, window.location.origin);
+  Object.entries(opts.query ?? {}).forEach(([k, v]) => {
+    if (v !== undefined) url.searchParams.set(k, String(v));
+  });
+
+  const res = await fetch(url, {
+    method,
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+  });
+
+  if (res.status === 204) return undefined as T;
+  if (!res.ok) {
+    let message = `${method} ${path} → ${res.status}`;
+    try {
+      const err = (await res.json()) as { error?: string; message?: string };
+      if (err.error ?? err.message) message = (err.error ?? err.message) as string;
+    } catch { /* non-JSON error body — keep the generic message */ }
+    throw new ApiError(res.status, message);
   }
-  login() { return this.todo("login"); }
-  signup() { return this.todo("signup"); }
-  logout() { return this.todo("logout"); }
-  getSession() { return http<never>("/session").catch(() => null); }
-  updateFirm() { return this.todo("updateFirm"); }
-  listUsers() { return http("/users") as never; }
-  updateUser() { return this.todo("updateUser"); }
-  listCases() { return http("/cases") as never; }
-  getCase(id: string) { return http(`/cases/${id}`) as never; }
-  createCase(input: unknown) { return http("/cases", { method: "POST", body: JSON.stringify(input) }) as never; }
-  updateCase(id: string, patch: unknown) { return http(`/cases/${id}`, { method: "PATCH", body: JSON.stringify(patch) }) as never; }
-  deleteCase(id: string) { return http(`/cases/${id}`, { method: "DELETE" }) as never; }
-  listContacts() { return http("/contacts") as never; }
-  getContact(id: string) { return http(`/contacts/${id}`) as never; }
-  createContact(input: unknown) { return http("/contacts", { method: "POST", body: JSON.stringify(input) }) as never; }
-  updateContact(id: string, patch: unknown) { return http(`/contacts/${id}`, { method: "PATCH", body: JSON.stringify(patch) }) as never; }
-  deleteContact(id: string) { return http(`/contacts/${id}`, { method: "DELETE" }) as never; }
-  listEvents(range: { from: string; to: string }) { return http(`/events${qs(range)}`) as never; }
-  createEvent(input: unknown) { return http("/events", { method: "POST", body: JSON.stringify(input) }) as never; }
-  updateEvent(id: string, patch: unknown) { return http(`/events/${id}`, { method: "PATCH", body: JSON.stringify(patch) }) as never; }
-  deleteEvent(id: string) { return http(`/events/${id}`, { method: "DELETE" }) as never; }
-  listTasks() { return http("/tasks") as never; }
-  createTask(input: unknown) { return http("/tasks", { method: "POST", body: JSON.stringify(input) }) as never; }
-  updateTask(id: string, patch: unknown) { return http(`/tasks/${id}`, { method: "PATCH", body: JSON.stringify(patch) }) as never; }
-  deleteTask(id: string) { return http(`/tasks/${id}`, { method: "DELETE" }) as never; }
-  listTimeEntries() { return http("/time-entries") as never; }
-  createTimeEntry(input: unknown) { return http("/time-entries", { method: "POST", body: JSON.stringify(input) }) as never; }
-  updateTimeEntry(id: string, patch: unknown) { return http(`/time-entries/${id}`, { method: "PATCH", body: JSON.stringify(patch) }) as never; }
-  deleteTimeEntry(id: string) { return http(`/time-entries/${id}`, { method: "DELETE" }) as never; }
-  listExpenses() { return http("/expenses") as never; }
-  createExpense(input: unknown) { return http("/expenses", { method: "POST", body: JSON.stringify(input) }) as never; }
-  updateExpense(id: string, patch: unknown) { return http(`/expenses/${id}`, { method: "PATCH", body: JSON.stringify(patch) }) as never; }
-  deleteExpense(id: string) { return http(`/expenses/${id}`, { method: "DELETE" }) as never; }
-  listInvoices() { return http("/invoices") as never; }
-  getInvoice(id: string) { return http(`/invoices/${id}`) as never; }
-  createInvoice(input: unknown) { return http("/invoices", { method: "POST", body: JSON.stringify(input) }) as never; }
-  updateInvoice(id: string, patch: unknown) { return http(`/invoices/${id}`, { method: "PATCH", body: JSON.stringify(patch) }) as never; }
-  deleteInvoice(id: string) { return http(`/invoices/${id}`, { method: "DELETE" }) as never; }
-  listPayments() { return http("/payments") as never; }
-  recordPayment(input: unknown) { return http("/payments", { method: "POST", body: JSON.stringify(input) }) as never; }
-  listTrustTransactions() { return http("/trust/transactions") as never; }
-  listDocuments() { return http("/documents") as never; }
-  createDocument(input: unknown) { return http("/documents", { method: "POST", body: JSON.stringify(input) }) as never; }
-  updateDocument(id: string, patch: unknown) { return http(`/documents/${id}`, { method: "PATCH", body: JSON.stringify(patch) }) as never; }
-  deleteDocument(id: string) { return http(`/documents/${id}`, { method: "DELETE" }) as never; }
-  listThreads() { return http("/threads") as never; }
-  sendMessage(threadId: string, body: string) { return http(`/threads/${threadId}/messages`, { method: "POST", body: JSON.stringify({ body }) }) as never; }
-  createThread(input: unknown) { return http("/threads", { method: "POST", body: JSON.stringify(input) }) as never; }
-  markThreadRead(id: string) { return http(`/threads/${id}/read`, { method: "POST" }) as never; }
-  listLeads() { return http("/leads") as never; }
-  createLead(input: unknown) { return http("/leads", { method: "POST", body: JSON.stringify(input) }) as never; }
-  updateLead(id: string, patch: unknown) { return http(`/leads/${id}`, { method: "PATCH", body: JSON.stringify(patch) }) as never; }
-  deleteLead(id: string) { return http(`/leads/${id}`, { method: "DELETE" }) as never; }
-  convertLead(id: string, caseInput: unknown) { return http(`/leads/${id}/convert`, { method: "POST", body: JSON.stringify(caseInput) }) as never; }
-  listReports() { return http("/reports") as never; }
-  listNotifications() { return http("/notifications") as never; }
-  markNotificationsRead() { return http("/notifications/read", { method: "POST" }) as never; }
+  return (await res.json()) as T;
+}
+
+/** GET /:id endpoints 404 for a missing entity; the API contract models that as null. */
+async function getOrNull<T>(path: string): Promise<T | null> {
+  try {
+    return await http<T>("GET", path);
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 404) return null;
+    throw e;
+  }
+}
+
+class HttpAdapter implements LawleitApi {
+  // ---- auth ----
+  async login(email: string, password: string): Promise<Session> {
+    const res = await http<Session & { token: string }>("POST", "/auth/login", {
+      body: { email, password },
+    });
+    setToken(res.token);
+    return { user: res.user, firm: res.firm, users: res.users };
+  }
+
+  async signup(input: {
+    firstName: string; lastName: string; email: string; firmName: string;
+    zip: string; employees: number; phone: string;
+  }): Promise<Session> {
+    const res = await http<Session & { token: string }>("POST", "/auth/signup", { body: input });
+    setToken(res.token);
+    return { user: res.user, firm: res.firm, users: res.users };
+  }
+
+  async logout(): Promise<void> {
+    try {
+      await http<void>("POST", "/auth/logout");
+    } finally {
+      setToken(null);
+    }
+  }
+
+  async getSession(): Promise<Session | null> {
+    if (!token) return null;
+    try {
+      return await http<Session>("GET", "/session");
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 401) {
+        setToken(null);
+        return null;
+      }
+      throw e;
+    }
+  }
+
+  // ---- firm & users ----
+  updateFirm(patch: Partial<Firm>) { return http<Firm>("PATCH", "/firm", { body: patch }); }
+  listUsers() { return http<User[]>("GET", "/users"); }
+  updateUser(id: string, patch: Partial<User>) { return http<User>("PATCH", `/users/${id}`, { body: patch }); }
+
+  // ---- cases ----
+  listCases() { return http<Case[]>("GET", "/cases"); }
+  getCase(id: string) { return getOrNull<Case>(`/cases/${id}`); }
+  createCase(input: Partial<Case>) { return http<Case>("POST", "/cases", { body: input }); }
+  updateCase(id: string, patch: Partial<Case>) { return http<Case>("PATCH", `/cases/${id}`, { body: patch }); }
+  deleteCase(id: string) { return http<void>("DELETE", `/cases/${id}`); }
+
+  // ---- contacts ----
+  listContacts() { return http<Contact[]>("GET", "/contacts"); }
+  getContact(id: string) { return getOrNull<Contact>(`/contacts/${id}`); }
+  createContact(input: Partial<Contact>) { return http<Contact>("POST", "/contacts", { body: input }); }
+  updateContact(id: string, patch: Partial<Contact>) { return http<Contact>("PATCH", `/contacts/${id}`, { body: patch }); }
+  deleteContact(id: string) { return http<void>("DELETE", `/contacts/${id}`); }
+
+  // ---- calendar ----
+  listEvents(range: { from: string; to: string }) {
+    return http<CalendarEvent[]>("GET", "/events", { query: { from: range.from, to: range.to } });
+  }
+  createEvent(input: Partial<CalendarEvent>) { return http<CalendarEvent>("POST", "/events", { body: input }); }
+  updateEvent(id: string, patch: Partial<CalendarEvent>) { return http<CalendarEvent>("PATCH", `/events/${id}`, { body: patch }); }
+  deleteEvent(id: string) { return http<void>("DELETE", `/events/${id}`); }
+
+  // ---- tasks ----
+  listTasks() { return http<Task[]>("GET", "/tasks"); }
+  createTask(input: Partial<Task>) { return http<Task>("POST", "/tasks", { body: input }); }
+  updateTask(id: string, patch: Partial<Task>) { return http<Task>("PATCH", `/tasks/${id}`, { body: patch }); }
+  deleteTask(id: string) { return http<void>("DELETE", `/tasks/${id}`); }
+
+  // ---- time & expenses ----
+  listTimeEntries() { return http<TimeEntry[]>("GET", "/time-entries"); }
+  createTimeEntry(input: Partial<TimeEntry>) { return http<TimeEntry>("POST", "/time-entries", { body: input }); }
+  updateTimeEntry(id: string, patch: Partial<TimeEntry>) { return http<TimeEntry>("PATCH", `/time-entries/${id}`, { body: patch }); }
+  deleteTimeEntry(id: string) { return http<void>("DELETE", `/time-entries/${id}`); }
+  listExpenses() { return http<Expense[]>("GET", "/expenses"); }
+  createExpense(input: Partial<Expense>) { return http<Expense>("POST", "/expenses", { body: input }); }
+  updateExpense(id: string, patch: Partial<Expense>) { return http<Expense>("PATCH", `/expenses/${id}`, { body: patch }); }
+  deleteExpense(id: string) { return http<void>("DELETE", `/expenses/${id}`); }
+
+  // ---- billing ----
+  listInvoices() { return http<Invoice[]>("GET", "/invoices"); }
+  getInvoice(id: string) { return getOrNull<Invoice>(`/invoices/${id}`); }
+  createInvoice(input: Partial<Invoice>) { return http<Invoice>("POST", "/invoices", { body: input }); }
+  updateInvoice(id: string, patch: Partial<Invoice>) { return http<Invoice>("PATCH", `/invoices/${id}`, { body: patch }); }
+  deleteInvoice(id: string) { return http<void>("DELETE", `/invoices/${id}`); }
+  listPayments() { return http<Payment[]>("GET", "/payments"); }
+  recordPayment(input: Partial<Payment>) { return http<Payment>("POST", "/payments", { body: input }); }
+  listTrustTransactions() { return http<TrustTransaction[]>("GET", "/trust/transactions"); }
+
+  // ---- documents ----
+  listDocuments() { return http<DocumentFile[]>("GET", "/documents"); }
+  createDocument(input: Partial<DocumentFile>) { return http<DocumentFile>("POST", "/documents", { body: input }); }
+  updateDocument(id: string, patch: Partial<DocumentFile>) { return http<DocumentFile>("PATCH", `/documents/${id}`, { body: patch }); }
+  deleteDocument(id: string) { return http<void>("DELETE", `/documents/${id}`); }
+
+  // ---- communications ----
+  listThreads() { return http<MessageThread[]>("GET", "/threads"); }
+  sendMessage(threadId: string, body: string) {
+    return http<MessageThread>("POST", `/threads/${threadId}/messages`, { body: { body } });
+  }
+  createThread(input: Partial<MessageThread>) { return http<MessageThread>("POST", "/threads", { body: input }); }
+  markThreadRead(id: string) { return http<void>("POST", `/threads/${id}/read`); }
+
+  // ---- leads ----
+  listLeads() { return http<Lead[]>("GET", "/leads"); }
+  createLead(input: Partial<Lead>) { return http<Lead>("POST", "/leads", { body: input }); }
+  updateLead(id: string, patch: Partial<Lead>) { return http<Lead>("PATCH", `/leads/${id}`, { body: patch }); }
+  deleteLead(id: string) { return http<void>("DELETE", `/leads/${id}`); }
+  convertLead(id: string, caseInput: Partial<Case>) {
+    return http<{ lead: Lead; contact: Contact; case: Case }>("POST", `/leads/${id}/convert`, { body: caseInput });
+  }
+
+  // ---- reports & notifications ----
+  listReports() { return http<ReportDef[]>("GET", "/reports"); }
+  listNotifications() { return http<Notification[]>("GET", "/notifications"); }
+  markNotificationsRead() { return http<void>("POST", "/notifications/read"); }
 }
 
 export const httpAdapter: LawleitApi = new HttpAdapter();

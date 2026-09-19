@@ -1,73 +1,55 @@
-# React + TypeScript + Vite
+# Lawleit — app (front-end)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Legal practice management SaaS clone (MyCase → Lawleit rebrand). React 19 +
+TypeScript + Vite + Tailwind v4 + shadcn/ui, react-router. Project overview lives
+in the repo root: [PLAN.md](../PLAN.md), [CHANGELOG.md](../CHANGELOG.md).
 
-Currently, two official plugins are available:
+## Run
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install        # once
+npm run dev        # marketing site + app on :3000, mock data layer (default)
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Login accepts any email/password in mock mode — a seeded demo firm loads.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Run against a real HTTP backend
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run dev:http   # vite (:3000) + reference backend (backend/server.mjs, :8787)
 ```
+
+This sets `VITE_API_MODE=http` and proxies `/api/*` to the backend. Login with any
+email + non-empty password (the reference backend runs demo auth). Equivalent manual
+steps: `npm run dev:api` in one terminal, `npm run dev` with a `.env` (see
+[.env.example](./.env.example)) in the other. Full details:
+[docs/BACKEND.md](../docs/BACKEND.md) and [docs/API_CONTRACT.md](../docs/API_CONTRACT.md).
+
+## Data layer (the backend seam)
+
+- `src/lib/data/api.ts` — `LawleitApi` interface; the UI codes only against this.
+- `src/lib/data/types.ts` — domain models, single source of truth.
+- `src/lib/data/mockAdapter.ts` — seeded in-memory DB persisted to localStorage.
+- `src/lib/data/httpAdapter.ts` — REST client implementing the API contract 1:1.
+- `src/lib/data/index.ts` — picks the adapter from `VITE_API_MODE` (`mock` | `http`).
+
+To point at your own backend, implement the contract in `docs/API_CONTRACT.md`
+(any stack — plain JSON shapes) and set `VITE_API_MODE=http` +
+`VITE_API_BASE_URL=https://your-api/v1`.
+
+## Scripts
+
+| Script | What it does |
+|---|---|
+| `npm run dev` | vite dev server (mock data layer) |
+| `npm run dev:api` | reference backend only (`:8787`) |
+| `npm run dev:http` | backend + vite together, http mode, combined log in `logs/dev.log` |
+| `npm run build` | `tsc -b` + vite build + SPA-fallback entrypoints for all routes |
+| `npm run smoke:api` | 55-assertion smoke suite against the reference backend |
+| `npm run lint` | eslint |
+
+## Other
+
+ESLint config and template notes: see [eslint.config.js](./eslint.config.js). The
+React Compiler is not enabled (build/dev performance); enable per
+[react.dev/learn/react-compiler](https://react.dev/learn/react-compiler/installation).

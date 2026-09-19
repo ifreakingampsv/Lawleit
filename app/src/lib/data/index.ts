@@ -3,13 +3,22 @@ import { mockAdapter } from "./mockAdapter";
 import { httpAdapter } from "./httpAdapter";
 
 /**
- * THE BACKEND SWAP POINT.
+ * THE BACKEND SWAP POINT — now env-driven.
  *
- * mockAdapter — fully working today (localStorage persistence, seeded demo firm).
- * httpAdapter — implement against your real API (docs/API_CONTRACT.md) and flip:
+ *   VITE_API_MODE=mock (default) → mockAdapter: seeded in-memory DB persisted to
+ *                                  localStorage; works with zero backend.
+ *   VITE_API_MODE=http           → httpAdapter: REST client implementing
+ *                                  docs/API_CONTRACT.md 1:1. Point VITE_API_BASE_URL
+ *                                  at the bundled reference backend (backend/server.mjs)
+ *                                  or the owner's real API. See docs/BACKEND.md.
  *
- *   export const api: LawleitApi = httpAdapter;
+ * Source-level switching is no longer needed; to hard-pin an adapter regardless of
+ * env, change the default below.
  */
-export const api: LawleitApi = mockAdapter;
+const mode = (import.meta.env.VITE_API_MODE as "mock" | "http" | undefined) ?? "mock";
+
+export const api: LawleitApi = mode === "http" ? httpAdapter : mockAdapter;
+
+export const apiMode: "mock" | "http" = mode;
 
 export * from "./types";

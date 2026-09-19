@@ -41,8 +41,13 @@ data layer so the owner can build the real backend later.
     TimeEntry, Expense, Invoice, Payment, Document, Message, Lead…)
   - `api.ts` — the interface the UI codes against (async, REST-shaped)
   - `mockAdapter.ts` — seeded in-memory + localStorage persistence (ships working)
-  - `httpAdapter.ts` — TODO stub wired to `VITE_API_BASE_URL` (owner's real backend)
-  - Swap = one line in `src/lib/data/index.ts`.
+  - `httpAdapter.ts` — full REST client implementing the API contract
+    (selected via `VITE_API_MODE=http`)
+  - Adapter chosen by env (`VITE_API_MODE`), not source edits.
+- `backend/server.mjs` — **reference backend** (repo root): zero-dependency Node ≥ 24
+  server implementing docs/API_CONTRACT.md 1:1 with JSON-file storage and demo
+  auth, so http mode works today. `backend/smoke.mjs` = 55-assertion contract
+  test. What the owner must replace for production: docs/BACKEND.md.
 - Auth is mocked (any email/password → seeded session); JWT/session flow documented in
   API_CONTRACT.md for the real backend.
 
@@ -54,6 +59,9 @@ data layer so the owner can build the real backend later.
 - [x] M4 Product app build (dashboard + 14 modules)
 - [x] M5 Mock backend + API contract docs
 - [x] M6 Final verify sweep, CHANGELOG + report
+- [x] M7 Push to GitHub (private repo ifreakingampsv/Lawleit) + backend fill-in:
+  httpAdapter implemented, reference backend + smoke suite, env-driven adapter
+  switch, dev tooling, docs (docs/SESSION-2026-09-20.md, docs/BACKEND.md)
 
 ## ACCESS — what needs the owner
 

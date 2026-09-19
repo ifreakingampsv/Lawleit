@@ -1,0 +1,86 @@
+
+== health & auth gate ==
+  PASS GET /health
+  PASS GET /cases without token → 401
+
+== auth ==
+  PASS login with empty credentials → 401
+  PASS login returns token + session user
+  PASS login returns firm + users
+  PASS GET /session with token
+
+== firm & users ==
+  PASS PATCH /firm
+  PASS GET /users
+  PASS PATCH /users/:id
+
+== cases ==
+  PASS POST /cases assigns 2026-XXXX number
+  PASS GET /cases/:id
+  PASS PATCH /cases/:id
+  PASS GET /cases?status= filter
+  PASS DELETE /cases/:id → 204
+  PASS GET deleted case → 404
+
+== contacts ==
+  PASS POST /contacts
+  PASS PATCH /contacts/:id
+  PASS DELETE /contacts/:id
+
+== calendar ==
+  PASS POST /events
+  PASS GET /events?from=&to= inclusive filter
+  PASS PATCH /events/:id
+  PASS DELETE /events/:id
+
+== tasks ==
+  PASS POST /tasks defaults status=todo
+  PASS PATCH /tasks/:id status flow
+  PASS DELETE /tasks/:id
+
+== time & expenses ==
+  PASS POST /time-entries
+  PASS PATCH /time-entries/:id
+  PASS DELETE /time-entries/:id
+  PASS POST /expenses
+  PASS DELETE /expenses/:id
+
+== billing — invoices, payment roll-up, trust ledger ==
+  PASS POST /invoices assigns INV-XXXX
+  PASS PATCH /invoices/:id status
+  PASS partial payment keeps invoice sent (400 total, 250 paid)
+  PASS full payment rolls invoice up to paid
+  PASS POST /payments trustAccount
+  PASS trust ledger appends running balanceAfter for new client
+
+== documents ==
+  PASS POST /documents
+  PASS PATCH /documents/:id
+  PASS DELETE /documents/:id
+
+== communications ==
+  PASS POST /threads
+  PASS POST /threads/:id/messages appends
+  PASS POST /threads/:id/read clears unread
+
+== leads & conversion ==
+  PASS POST /leads
+  PASS PATCH /leads/:id stage
+  PASS POST /leads/:id/convert marks lead converted
+  PASS conversion creates contact + numbered case
+  PASS converted contact links the new case
+  PASS double conversion → 409
+  PASS DELETE /leads/:id
+
+== reports & notifications ==
+  PASS GET /reports
+  PASS GET /notifications
+  PASS POST /notifications/read → 204
+  PASS all notifications read after POST /notifications/read
+
+== logout ==
+  PASS POST /auth/logout → 204
+  PASS session invalid after logout
+
+55 passed, 0 failed
+SMOKE OK

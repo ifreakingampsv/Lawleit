@@ -5,9 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:api": "node ../backend/server.mjs",
+    "dev:http": "node scripts/dev-all.mjs",
     "build": "tsc -b && vite build && node scripts/spa-fallback.mjs",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "smoke:api": "node ../backend/smoke.mjs"
   },
   "dependencies": {
     "@fontsource/bebas-neue": "^5.0.0",

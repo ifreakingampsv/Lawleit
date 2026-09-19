@@ -9,6 +9,11 @@ export default defineConfig({
   plugins: [tailwindcss(), react()],
   server: {
     port: 3000,
+    // VITE_API_MODE=http: same-origin /api/v1 requests are proxied to the
+    // reference backend (backend/server.mjs, default :8787) — no CORS needed.
+    proxy: process.env.VITE_API_PROXY_TARGET
+      ? { "/api": { target: process.env.VITE_API_PROXY_TARGET, changeOrigin: true } }
+      : undefined,
   },
   resolve: {
     alias: {

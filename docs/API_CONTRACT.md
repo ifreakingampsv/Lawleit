@@ -1,10 +1,15 @@
 # Lawleit API Contract
 
-The contract the front-end codes against. Implement these endpoints in your backend,
-fill in `src/lib/data/httpAdapter.ts`, then flip one line in `src/lib/data/index.ts`:
+The contract the front-end codes against. `src/lib/data/httpAdapter.ts` is a
+complete implementation of it, and **`backend/server.mjs` is a runnable
+reference backend that implements it exactly** (zero dependencies, JSON-file
+storage, demo auth) — see [BACKEND.md](./BACKEND.md). To go live on your own
+stack, reimplement these endpoints (plain JSON shapes) and run the front-end
+with:
 
-```ts
-export const api: LawleitApi = httpAdapter;
+```env
+VITE_API_MODE=http
+VITE_API_BASE_URL=https://your-api/v1
 ```
 
 All types live in `src/lib/data/types.ts` (single source of truth). Shapes below are
@@ -89,8 +94,12 @@ abbreviated — trust the TypeScript interface `LawleitApi` in `src/lib/data/api
 
 ## Going live checklist
 
-1. Stand up the API (any stack — the shapes are plain JSON).
-2. Implement `httpAdapter` methods (they already have the paths wired).
-3. `export const api = httpAdapter` in `src/lib/data/index.ts`.
-4. Delete `localStorage["lawleit.db.v1"]` and `sessionStorage["lawleit.session.v1"]` to drop mock state.
-5. Set `VITE_API_BASE_URL` and deploy.
+1. Reimplement the API on your stack (plain JSON shapes; `backend/server.mjs` is
+   the executable reference — port it or point at it) and add real auth,
+   persistence, payments and uploads (see BACKEND.md § What still needs the owner).
+2. `VITE_API_MODE=http` and `VITE_API_BASE_URL=https://your-api/v1` — no source
+   changes needed.
+3. Run `cd app && npm run smoke:api` against your API: the suite asserts the
+   contract behaviors (numbering, roll-up, trust ledger, conversion) — all 55
+   must pass.
+4. Deploy; the SPA-fallback build already emits one entrypoint per route.

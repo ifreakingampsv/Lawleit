@@ -7,6 +7,9 @@ out/shots/
 out/stills/
 # video2code plugin state
 .v2c/
+# reference-backend runtime data (JSON db) and dev logs
+backend/data/
+/logs/
 
 # --- app build/deps ---
 node_modules/

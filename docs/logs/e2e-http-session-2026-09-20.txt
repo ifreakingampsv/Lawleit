@@ -1,0 +1,27 @@
+[lawleit] reference backend on http://127.0.0.1:8787
+[lawleit] routes: 58 · db: /tmp/lawleit-e2e.json · demo auth: any non-empty password
+[lawleit] base path: /api/v1/… (also serves prefixless paths)
+[03:07:01] GET /health 200 4ms
+[03:07:56] POST /auth/login 200 2ms
+[03:07:56] GET /cases 200 1ms
+[03:07:56] GET /time-entries 200 0ms
+[03:07:56] GET /invoices 200 0ms
+[03:07:56] GET /events 200 0ms
+[03:07:56] GET /tasks 200 0ms
+[03:07:56] GET /session 200 0ms
+[03:07:56] GET /notifications 200 1ms
+[03:07:56] GET /cases 200 0ms
+[03:07:56] GET /time-entries 200 0ms
+[03:07:56] GET /invoices 200 0ms
+[03:07:56] GET /events 200 0ms
+[03:07:56] GET /tasks 200 0ms
+[03:07:56] GET /session 200 0ms
+[03:07:56] GET /notifications 200 0ms
+[03:08:11] GET /cases 200 1ms
+[03:08:11] GET /contacts 200 1ms
+[03:08:11] GET /session 200 1ms
+[03:08:11] GET /notifications 200 1ms
+[03:08:11] GET /cases 200 0ms
+[03:08:11] GET /contacts 200 0ms
+[03:08:11] GET /session 200 0ms
+[03:08:11] GET /notifications 200 0ms
