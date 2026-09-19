@@ -1,0 +1,192 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --background: hsl(40 20% 98%);
+  --foreground: hsl(240 6% 10%);
+  --card: hsl(0 0% 100%);
+  --card-foreground: hsl(240 6% 10%);
+  --popover: hsl(0 0% 100%);
+  --popover-foreground: hsl(240 6% 10%);
+  /* Lawleit brand violet */
+  --primary: hsl(245 52% 55%);
+  --primary-foreground: hsl(0 0% 100%);
+  --secondary: hsl(240 5% 96%);
+  --secondary-foreground: hsl(240 6% 10%);
+  --muted: hsl(240 5% 96%);
+  --muted-foreground: hsl(240 4% 46%);
+  --accent: hsl(245 40% 95%);
+  --accent-foreground: hsl(245 52% 40%);
+  --destructive: hsl(0 84.2% 60.2%);
+  --destructive-foreground: hsl(0 0% 98%);
+  --border: hsl(240 6% 90%);
+  --input: hsl(240 6% 90%);
+  --ring: hsl(245 52% 55%);
+  --radius: 0.75rem;
+  --sidebar-background: hsl(245 25% 16%);
+  --sidebar-foreground: hsl(245 15% 88%);
+  --sidebar-primary: hsl(245 52% 62%);
+  --sidebar-primary-foreground: hsl(0 0% 100%);
+  --sidebar-accent: hsl(245 22% 24%);
+  --sidebar-accent-foreground: hsl(245 15% 95%);
+  --sidebar-border: hsl(245 18% 26%);
+  --sidebar-ring: hsl(245 52% 62%);
+
+  /* Lawleit marketing palette (rebrand of 8am MyCase) */
+  --lawleit-violet: hsl(245 52% 55%);        /* primary CTA — replaces MyCase orange */
+  --lawleit-violet-dark: hsl(245 52% 46%);
+  --lawleit-deep: hsl(244 38% 39%);          /* band gradient start */
+  --lawleit-band: hsl(243 60% 60%);          /* band gradient end */
+  --lawleit-ink: hsl(245 30% 28%);           /* big numerals on band */
+  --lawleit-lavender: hsl(245 60% 96%);      /* lavender surfaces */
+  --lawleit-teal: hsl(174 50% 47%);          /* gem-teal secondary */
+  --lawleit-footer: hsl(245 28% 18%);        /* footer navy-violet */
+  --lawleit-tile: hsl(60 7% 96%);            /* light tiles */
+}
+
+.dark {
+  --background: hsl(245 28% 10%);
+  --foreground: hsl(0 0% 98%);
+  --card: hsl(245 25% 13%);
+  --card-foreground: hsl(0 0% 98%);
+  --popover: hsl(245 25% 13%);
+  --popover-foreground: hsl(0 0% 98%);
+  --primary: hsl(245 52% 62%);
+  --primary-foreground: hsl(0 0% 100%);
+  --secondary: hsl(245 20% 20%);
+  --secondary-foreground: hsl(0 0% 98%);
+  --muted: hsl(245 20% 20%);
+  --muted-foreground: hsl(240 5% 65%);
+  --accent: hsl(245 22% 24%);
+  --accent-foreground: hsl(0 0% 98%);
+  --destructive: hsl(0 62.8% 50%);
+  --destructive-foreground: hsl(0 0% 98%);
+  --border: hsl(245 18% 24%);
+  --input: hsl(245 18% 24%);
+  --ring: hsl(245 52% 62%);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar-background);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --color-lawleit: var(--lawleit-violet);
+  --color-lawleit-dark: var(--lawleit-violet-dark);
+  --color-lawleit-deep: var(--lawleit-deep);
+  --color-lawleit-band: var(--lawleit-band);
+  --color-lawleit-ink: var(--lawleit-ink);
+  --color-lawleit-lavender: var(--lawleit-lavender);
+  --color-lawleit-teal: var(--lawleit-teal);
+  --color-lawleit-footer: var(--lawleit-footer);
+  --color-lawleit-tile: var(--lawleit-tile);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  }
+}
+
+/* Marketing site helpers */
+.font-display {
+  font-family: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: -0.02em;
+}
+
+.lawleit-band-bg {
+  background: linear-gradient(160deg, var(--lawleit-deep) 0%, var(--lawleit-band) 55%, hsl(243 55% 65%) 100%);
+}
+
+.lawleit-footer-bg {
+  background: var(--lawleit-footer);
+}
+
+.hero-grid-bg {
+  background:
+    radial-gradient(1200px 500px at 85% 10%, hsl(245 60% 97%) 0%, transparent 60%),
+    var(--background);
+}
+
+.pricing-hero-bg {
+  background:
+    radial-gradient(700px 380px at 12% 20%, hsl(245 70% 96%) 0%, transparent 60%),
+    radial-gradient(700px 380px at 88% 12%, hsl(174 45% 96%) 0%, transparent 60%),
+    radial-gradient(900px 500px at 50% 110%, hsl(245 40% 96%) 0%, transparent 65%),
+    hsl(0 0% 100%);
+}
+
+/* thin decorative dashed path between product feature sections */
+.dashed-path {
+  background-image: repeating-linear-gradient(to right, hsl(245 30% 78%) 0 10px, transparent 10px 20px);
+  height: 2px;
+}
+
+/* ROI slider: large white knobs like the source calculator */
+input[type="range"].roi-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 5px;
+  border-radius: 9999px;
+}
+input[type="range"].roi-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 22px;
+  width: 22px;
+  border-radius: 9999px;
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.25);
+  cursor: pointer;
+  margin-top: -1px;
+}
+input[type="range"].roi-slider::-moz-range-thumb {
+  height: 22px;
+  width: 22px;
+  border-radius: 9999px;
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.25);
+  cursor: pointer;
+}
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }

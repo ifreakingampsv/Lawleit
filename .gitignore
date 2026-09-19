@@ -1,0 +1,31 @@
+# --- heavy working artifacts (kept on disk, not versioned) ---
+# Source recordings of mycase.com (116MB, copyrighted footage) — local pipeline input only
+recordings/
+# Verification composites/screenshots from the video2code sweep (133MB of binaries)
+out/cmp/
+out/shots/
+out/stills/
+# video2code plugin state
+.v2c/
+
+# --- app build/deps ---
+node_modules/
+app/dist/
+dist-ssr/
+*.local
+
+# --- editor / OS ---
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# --- secrets ---
+.env
+.env.*
+!.env.example
