@@ -79,3 +79,14 @@ change:
 
 Step-by-step of how this layer was built and verified this session:
 [SESSION-2026-09-20.md](./SESSION-2026-09-20.md).
+
+## Build plan & test harness (added 2026-09-25)
+
+- [`docs/BACKEND-PLAN.md`](./BACKEND-PLAN.md) — phased plan from reference server to
+  production (decisions → schema → contract implementation → cutover → hardening),
+  written as the skeleton to refine with the owner's architecture requirements.
+- `app/tests/httpAdapter.contract.test.ts` — the acceptance harness for ANY backend
+  claiming the contract: point `VITE_API_BASE_URL` at your server and run
+  `npm run test` (a bundled-server spawn is skipped when that env var is set).
+- `npm run smoke:api` now self-spawns a scratch-DB reference server when none is
+  listening — zero-setup verification.

@@ -7,13 +7,53 @@
  * ledger, lead conversion, auth lifecycle).
  *
  * Usage:
- *   node backend/server.mjs --reset            # terminal 1 (scratch DB fine:
- *                                              #   LAWLEIT_DB=/tmp/lawleit-smoke.json)
- *   node backend/smoke.mjs                     # terminal 2 — prints PASS/FAIL, exits 1 on failure
+ *   npm run smoke:api                        # from app/ — zero setup: if no server
+ *                                            # is listening, one is spawned on a
+ *                                            # scratch DB and torn down at exit.
+ *   node backend/server.mjs --reset          # or the classic two-terminal flow:
+ *   node backend/smoke.mjs                   #   start the server yourself, then run
+ *                                            #   against it (scratch DB fine:
+ *                                            #   LAWLEIT_DB=/tmp/lawleit-smoke.json)
  *
  * Env: SMOKE_BASE (default http://127.0.0.1:8787/api/v1)
  */
+import { spawn } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+
 const BASE = process.env.SMOKE_BASE ?? "http://127.0.0.1:8787/api/v1";
+
+// ---- ensure a server is reachable (spawn one on a scratch DB if not) ------
+async function healthy() {
+  try { return (await fetch(`${BASE}/health`)).ok; } catch { return false; }
+}
+
+let spawned = null;
+if (!(await healthy())) {
+  const port = new URL(BASE).port || "80";
+  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "lawleit-smoke-"));
+  spawned = spawn(process.execPath, [path.join(import.meta.dirname, "server.mjs")], {
+    env: { ...process.env, PORT: port, LAWLEIT_DB: path.join(scratch, "db.json") },
+    stdio: "inherit",
+  });
+  // Without unref the running child keeps this process alive forever — and the
+  // teardown below only fires at exit. unref lets the script end; the exit
+  // hook then reaps the server.
+  spawned.unref();
+  const teardown = () => spawned?.kill();
+  process.on("exit", teardown);
+  process.on("SIGINT", () => { teardown(); process.exit(130); });
+  const deadline = Date.now() + 10_000;
+  while (!(await healthy())) {
+    if (Date.now() > deadline) {
+      console.error(`[smoke] spawned reference backend never became healthy on :${port}`);
+      process.exit(1);
+    }
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  console.log(`[smoke] spawned reference backend on :${port} (scratch DB: ${scratch})`);
+}
 
 let pass = 0;
 let failCount = 0;

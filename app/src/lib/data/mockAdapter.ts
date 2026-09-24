@@ -381,6 +381,17 @@ class MockAdapter implements LawleitApi {
         .reduce((s, x) => s + x.amount, 0);
       iv.status = paid >= total ? "paid" : iv.status === "draft" ? "draft" : "sent";
     }
+    // Parity with the reference backend (POST /payments, contract §trust):
+    // a trust-account payment appends a ledger entry with a running balance.
+    if (p.trustAccount) {
+      const prev = [...this.db.trust].reverse().find((t) => t.clientId === p.clientId);
+      this.db.trust.push({
+        id: nid("tt"), clientId: p.clientId, caseId: iv?.caseId ?? "",
+        date: p.date,
+        description: `Trust deposit — invoice ${iv?.number ?? "(unlinked)"}`,
+        amount: p.amount, balanceAfter: (prev?.balanceAfter ?? 0) + p.amount,
+      });
+    }
     this.save();
     return p;
   }
@@ -477,6 +488,9 @@ class MockAdapter implements LawleitApi {
     this.withSession();
     const l = this.db.leads.find((x) => x.id === id);
     if (!l) throw new Error("Lead not found");
+    // Parity with the reference backend (POST /leads/:id/convert): converting
+    // twice is a conflict, not a second case.
+    if (l.stage === "converted") throw new Error("Lead already converted");
     const contact: Contact = {
       id: nid("c"), type: "client", name: l.name, email: l.email, phone: l.phone,
       address: "", caseIds: [], createdAt: new Date().toISOString().slice(0, 10),

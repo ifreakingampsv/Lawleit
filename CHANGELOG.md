@@ -122,3 +122,26 @@ Append-only. One entry per meaningful action: `- HH:MM — area: what changed an
   via demo login; S4 row 1 / S15 headline / S16 legal row now directly evidenced).
   Audit now fully green (coverage / paired evidence / attribution / freshness /
   provenance). verify.jsonl: 88 lines.
+- 00:35 (data) SEAM HARDENING per owner brief ("implement what you can, reversible,
+  no design decisions"). First real test suite: vitest + jsdom; `npm run test` —
+  20/20 green: mock-adapter unit tests (auth gate, number assignment, invoice
+  roll-up incl. partially-paid-draft-stays-draft, trust running balance, lead
+  conversion, notifications, localStorage persistence) + a contract suite that
+  spawns backend/server.mjs on a scratch DB and drives the REAL httpAdapter
+  (token handling, ApiError 401/404/409, 404→null, server-side responsibilities).
+  The contract suite doubles as the acceptance harness for the owner's real
+  backend: set VITE_API_BASE_URL and `npm run test` certifies it.
+- 00:35 (data) PARITY FIXES mock↔server (found while writing tests): mock
+  recordPayment with trustAccount:true now appends the trust-ledger entry with
+  running balanceAfter (server already did); mock convertLead on a converted lead
+  now throws "Lead already converted" (server already returned 409). Both adapters
+  now behave identically; tests pin it.
+- 00:35 (backend) smoke:api is zero-setup: backend/smoke.mjs self-spawns a
+  scratch-DB reference server when nothing listens on SMOKE_BASE and reaps it at
+  exit (spawned.unref() + exit hook — unref was required; the live child otherwise
+  deadlocked the parent after SMOKE OK). Two-terminal flow unchanged. Verified:
+  exit=0, 55/55, no leftover processes. Build still clean.
+- (docs) NEW docs/BACKEND-PLAN.md (phased reference→production plan, skeleton for
+  the owner's architecture pass); BACKEND.md points at plan + harness; NEW
+  docs/SESSION-2026-09-25.md. Deliberately deferred (owner design pending): real
+  DB/auth stack, payments, uploads, email/SMS, client portal, AI, caching.
