@@ -88,3 +88,29 @@ Append-only. One entry per meaningful action: `- HH:MM — area: what changed an
   docs/SESSION-2026-09-20.md (step-by-step of this session incl. before→after
   per file); app/README.md replaced (stock Vite template → project readme);
   API_CONTRACT.md + PLAN.md updated for the new state (M7 done).
+- (content) OWNER REQUEST: remove everything tying the site to MyCase's real
+  marketing. Deleted the "Partnered with over 130+ bar associations" band
+  (AssociationsBand + all drawn marks) and the stats row (37% / 19,000+ /
+  64hrs — MyCase's real figures); rewrote "19,000+ firms" claims in the final
+  CTA and product report band to generic copy; scrubbed MyCase/8am mentions
+  from source comments. Purple band now opens directly with the ROI calculator
+  (rounded-t-3xl entry kept). out/plan.md anchors S5/S7 marked REMOVED;
+  REBRAND.md mapping updated. Contract re-verification restarted on this final
+  state.
+- 22:08 (verify) Completed the contract re-verification on the final post-scrub
+  build: judged all 39 out/cmp2/ composites (+ shots3 captures + zoom crops);
+  fresh out/verify.jsonl — 33 [S] pass, 10 [D] pass, S5/S7 recorded as removed
+  (no REP comparison required); out/report.md rewritten for the new state (also
+  fixes a "LoliteApi" brand leak in the old report).
+- 22:08 (content) Rebrand-contract fixes found during verification: pricing
+  customer stories carried the source's verbatim customer names incl. real
+  firms (Kim Burch/Murphy Jones Law, Kim Leval/Sorenson Law Office, Michael
+  Burton/McFarling Law Group) → fictionalized (Marcy Tate/Tate & Ellis Law,
+  Priya Nadel/Nadel Law Office, Gordon Reeves/Reeves Law Group,
+  app/src/sites/marketing/PricingPage.tsx); product carousel quote 3 was a thin
+  disguise of the real Nanthaveth customer (Victor Nanthavong) → Victor
+  Marsh/Marsh & Associates (app/src/sites/marketing/ProductPage.tsx). Rebuilt,
+  re-captured both sections (out/shots4/), replacement composites
+  out/cmp2/G2_S23_stories_fix.png + G2_S30_band_fix.png — both pass.
+- (docs) NEW docs/SESSION-2026-09-24.md (verification + fix session record).
+  Deployed final build at http://localhost:38133/ (session-local).

@@ -81,7 +81,7 @@ export default function TasksPage() {
         })}
       </div>
 
-      {/* list view below for table parity with MyCase */}
+      {/* list view below mirrors the board columns */}
       <div className="mt-10">
         <h2 className="mb-3 text-[15px] font-bold text-neutral-900">All tasks</h2>
         <Card>

@@ -1,9 +1,9 @@
 # --- heavy working artifacts (kept on disk, not versioned) ---
 # Source recordings of mycase.com (116MB, copyrighted footage) — local pipeline input only
 recordings/
-# Verification composites/screenshots from the video2code sweep (133MB of binaries)
-out/cmp/
-out/shots/
+# Verification composites/screenshots from the video2code sweep (100+MB of binaries)
+out/cmp*/
+out/shots*/
 out/stills/
 # video2code plugin state
 .v2c/

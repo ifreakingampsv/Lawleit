@@ -220,9 +220,9 @@ export function CompareTable() {
 
 const STORIES = [
   [
-    { quote: "Lawleit has been a game changer for our practice. It allows us to keep track of every file in the same location and I am able to check on a file at any time, from anywhere.", name: "Kim Burch", firm: "Murphy Jones Law" },
-    { quote: "Lawleit has freed me up so I can spend that extra time at the office on client development, which is what we're all trying to do anyway.", name: "Kim Leval", firm: "Sorenson Law Office" },
-    { quote: "I can keep all my client communications in one easy-to-access location. The ability to send a client a quick text message is amazing, especially when clients are difficult to reach by phone.", name: "Michael Burton", firm: "McFarling Law Group" },
+    { quote: "Lawleit has been a game changer for our practice. It allows us to keep track of every file in the same location and I am able to check on a file at any time, from anywhere.", name: "Marcy Tate", firm: "Tate & Ellis Law" },
+    { quote: "Lawleit has freed me up so I can spend that extra time at the office on client development, which is what we're all trying to do anyway.", name: "Priya Nadel", firm: "Nadel Law Office" },
+    { quote: "I can keep all my client communications in one easy-to-access location. The ability to send a client a quick text message is amazing, especially when clients are difficult to reach by phone.", name: "Gordon Reeves", firm: "Reeves Law Group" },
   ],
   [
     { quote: "Billing used to take our bookkeeper a full week each month. With Lawleit batch billing it's an afternoon, and collections are faster too.", name: "Dana Whitmore", firm: "Whitmore & Associates" },

@@ -9,12 +9,17 @@ invoices, payments, trust accounting, documents, communications, reports, settin
 all CRUD-backed by a seeded mock adapter with localStorage persistence and a documented
 swap point for a real backend).
 
-**Deployed at:** http://localhost:44009/ (session-local; rebuild with `cd app && npm run build`, serve `app/dist`)
+**Deployed at:** http://localhost:38133/ (session-local; rebuild with `cd app && npm run build`, serve `app/dist`)
 
-**Verification:** every plan id has a final line in `out/verify.jsonl` — 35 [S] ids pass on
-SRC|REP composites of the final build, 10 [D] ids pass on paired interaction evidence
-(screenshot-burst/before-after: the tab recorder infra failed mid-session after 3 attempts —
-noted per id; effects are simple fades/toggles where frame-pair evidence is valid).
+**Verification:** every plan id has a final line in `out/verify.jsonl` on the final
+post-scrub build — 33 [S] ids pass on SRC|REP composites (`out/cmp2/`), 10 [D] ids pass
+on paired interaction evidence (screenshot-burst/before-after), and 2 ids (S5 association
+band, S7 stats row) are `removed` per the 2026-09-20 owner request (real MyCase claims —
+no REP comparison exists or is required). The 2026-09-24 pass also caught and fixed two
+rebrand-contract violations: the pricing customer-stories names matched the source
+verbatim (incl. the real firms Murphy Jones Law / McFarling Law Group) and the product
+carousel carried a thin disguise of the real Nanthaveth customer — all fictionalized,
+rebuilt, and re-verified (`out/shots4/`).
 
 **Deferred (known limitations):** none deferred; interpreted-by-design areas below.
 
@@ -32,7 +37,7 @@ noted per id; effects are simple fades/toggles where frame-pair evidence is vali
   fictional ones.
 
 **Owner integration points:**
-- `docs/API_CONTRACT.md` — REST mapping for every method of `LoliteApi`.
+- `docs/API_CONTRACT.md` — REST mapping for every method of `LawleitApi`.
 - `app/src/lib/data/httpAdapter.ts` — implement against your backend, flip one line in
   `app/src/lib/data/index.ts`.
 - `docs/REBRAND.md` — brand-token mapping; `CHANGELOG.md` — full session log.

@@ -31,7 +31,7 @@ export function Logo({
   );
 }
 
-/** Family wordmarks for the footer / utility bar (rebrand of the 8am product family) */
+/** Family wordmarks for the footer / utility bar (Lawleit product family wordmarks) */
 export function FamilyWordmark({ product, light = true }: { product: string; light?: boolean }) {
   return (
     <span className={`inline-flex items-baseline text-[26px] font-bold tracking-tight ${light ? "text-white" : "text-foreground"}`}>

@@ -51,64 +51,6 @@ export function IconGrid() {
   );
 }
 
-/* ---- Association band (S5) — drawn generic marks, rebrand-safe ---- */
-
-function PillarMark({ label }: { label: string }) {
-  return (
-    <div className="flex flex-col items-center gap-2 text-white">
-      <svg viewBox="0 0 48 40" className="h-16 w-[76px]" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M6 14L24 4l18 10M9 14v18m6-18v18m6-18v18m6-18v18m6-18v18M5 32h38M3 36h42" />
-      </svg>
-      <span className="text-[13px] font-bold uppercase tracking-widest">{label}</span>
-    </div>
-  );
-}
-function ScalesMark({ label }: { label: string }) {
-  return (
-    <div className="flex flex-col items-center gap-2 text-white">
-      <svg viewBox="0 0 48 40" className="h-16 w-16" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M24 4v30M14 8h20M24 34h-8m8 0h8M8 16l6-8 6 8a6 6 0 0 1-12 0zm20 0l6-8 6 8a6 6 0 0 1-12 0z" />
-      </svg>
-      <span className="text-[13px] font-bold uppercase tracking-widest">{label}</span>
-    </div>
-  );
-}
-function ShieldMark({ label }: { label: string }) {
-  return (
-    <div className="flex flex-col items-center gap-2 text-white">
-      <svg viewBox="0 0 40 40" className="h-16 w-14" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M20 4l12 4v10c0 8-5 14-12 18C13 32 8 26 8 18V8l12-4zM14 19l4 4 8-8" />
-      </svg>
-      <span className="text-[13px] font-bold uppercase tracking-widest">{label}</span>
-    </div>
-  );
-}
-
-export function AssociationsBand() {
-  return (
-    <section className="lawleit-band-bg rounded-t-3xl pb-16 pt-14 text-white">
-      <div className="mx-auto max-w-[1280px] px-8">
-        <h2 className="text-center text-[40px] font-bold tracking-tight">
-          Partnered with over 130+ bar associations
-        </h2>
-        <div className="mt-12 flex flex-wrap items-end justify-center gap-x-16 gap-y-10">
-          <PillarMark label="American Bar Alliance" />
-          <ShieldMark label="State Bar Network" />
-          <PillarMark label="Federal Bar Society" />
-          <div className="flex flex-col items-center text-white">
-            <span className="border-2 border-white px-2 py-1 text-[11px] font-bold uppercase leading-tight tracking-widest">California<br />Lawyers<br />Council</span>
-          </div>
-          <ScalesMark label="ISBA" />
-          <PillarMark label="Illinois State Bar" />
-        </div>
-        <div className="mt-10 flex justify-center">
-          <span className="text-3xl font-black italic tracking-tight">DC<span className="font-light">BAR</span><span className="align-super text-[10px]">™</span></span>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 /* ---- ROI calculator (S6) + [D3] ---- */
 
 const SLIDERS = [
@@ -132,7 +74,7 @@ export function RoiCalculator() {
   const moreCases = Math.round(hoursMo * 0.523 * (monthly ? 1 : 12));
 
   return (
-    <section className="lawleit-band-bg pb-14 pt-6">
+    <section className="lawleit-band-bg rounded-t-3xl pb-20 pt-14">
       <div className="mx-auto max-w-[1280px] px-8">
         <div data-testid="roi-card" className="relative mx-auto max-w-[1260px] rounded-3xl bg-white shadow-2xl">
           <div className="absolute -top-5 left-14 flex rounded-full bg-[#3f3cb0] p-1 shadow-lg">
@@ -203,30 +145,6 @@ export function RoiCalculator() {
         <p className="mt-8 text-center text-[13px] text-white/85">
           *This information is reflected as estimates only and are not guaranteed. <a href="/coming-soon" className="font-semibold underline">Learn more</a>
         </p>
-      </div>
-    </section>
-  );
-}
-
-/* ---- Stats row (S7) ---- */
-
-const STATS = [
-  { n: "37%", label: "more cases, same team" },
-  { n: "19,000+", label: "law firms choose Lawleit" },
-  { n: "64hrs", label: "billable time recovered per year" },
-];
-
-export function StatsRow() {
-  return (
-    <section className="lawleit-band-bg pb-20 pt-10">
-      <div className="mx-auto grid max-w-[1280px] grid-cols-3 gap-6 px-8">
-        {STATS.map((s) => (
-          <div key={s.n} className="rounded-2xl bg-white px-10 py-12 text-center">
-            <p className="text-[64px] font-bold leading-none tracking-tight text-[#4c4cb8]">{s.n}</p>
-            <div className="mx-auto mt-5 w-3/4 border-t border-neutral-300" />
-            <p className="mt-4 text-lg font-medium text-[#5a58c4]">{s.label}</p>
-          </div>
-        ))}
       </div>
     </section>
   );

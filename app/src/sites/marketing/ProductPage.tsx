@@ -287,7 +287,7 @@ function Visual({ kind }: { kind: FeatureSectionSpec["visual"] }) {
 const PRODUCT_QUOTES = [
   { quote: "Because of Lawleit, I have never been this busy. At the same time, I've never had things this under control.", name: "Aaron Feldman", firm: "Feldman Law Group" },
   { quote: "We signed up, imported everything, and were billing through Lawleit inside a week. It just works.", name: "Sarah Lindqvist", firm: "Lindqvist Law Office" },
-  { quote: "Our intake capacity quadrupled. The forms do the chasing for us now.", name: "Victor Nanthavong", firm: "Nanthavong & Associates" },
+  { quote: "Our intake capacity quadrupled. The forms do the chasing for us now.", name: "Victor Marsh", firm: "Marsh & Associates" },
 ];
 
 export function ProductCarousel({ title }: { title: string }) {
@@ -427,7 +427,7 @@ export default function ProductPage({ spec }: { spec: ProductSpec }) {
           <div className="mx-auto grid max-w-[1180px] grid-cols-[1.3fr_1fr] items-center gap-10 rounded-2xl bg-white p-10 shadow-sm ring-1 ring-neutral-100">
             <div>
               <p className="text-[14px] font-bold text-neutral-800">2026 Legal Industry Trends Report</p>
-              <h3 className="mt-1 text-2xl font-bold text-neutral-900">See how 19,000+ firms run a modern practice</h3>
+              <h3 className="mt-1 text-2xl font-bold text-neutral-900">See how modern firms run a healthier practice</h3>
               <ul className="mt-4 space-y-2 text-[15px] text-neutral-700">
                 {["Benchmarks for billing, realization, and lead conversion", "Tech adoption trends across practice areas", "What high-growth firms do differently"].map((b) => (
                   <li key={b} className="flex items-start gap-2.5">

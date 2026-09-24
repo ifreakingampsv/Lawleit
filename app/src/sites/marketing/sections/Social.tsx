@@ -192,7 +192,7 @@ export function FinalCta() {
             Run a more profitable firm with Lawleit
           </h2>
           <p className="mt-4 text-center text-lg text-neutral-700">
-            Join 19,000+ firms that trust Lawleit to run a more profitable, efficient practice.
+            Join the firms running a more profitable, efficient practice with Lawleit.
           </p>
           <div className="mt-8 flex justify-center">
             <EmailCapture align="center" />
