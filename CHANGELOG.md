@@ -114,3 +114,11 @@ Append-only. One entry per meaningful action: `- HH:MM — area: what changed an
   out/cmp2/G2_S23_stories_fix.png + G2_S30_band_fix.png — both pass.
 - (docs) NEW docs/SESSION-2026-09-24.md (verification + fix session record).
   Deployed final build at http://localhost:38133/ (session-local).
+- 23:10 (verify) Closed the contract audit (13 gaps): recorded replica interactions
+  (browser recorder → out/shots4/rec/*.mp4) and built matched-beat SRC|REP strips
+  under out/cmp/ for all 10 [D] ids; appended clean pass lines for S23/D9; added
+  fresh post-edit re-certification lines for all 33 [S] + 10 [D] ids with single-path
+  out/cmp/ evidence (core sections re-captured on the final build, incl. app dashboard
+  via demo login; S4 row 1 / S15 headline / S16 legal row now directly evidenced).
+  Audit now fully green (coverage / paired evidence / attribution / freshness /
+  provenance). verify.jsonl: 88 lines.
