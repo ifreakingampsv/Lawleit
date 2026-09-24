@@ -145,3 +145,10 @@ Append-only. One entry per meaningful action: `- HH:MM — area: what changed an
   the owner's architecture pass); BACKEND.md points at plan + harness; NEW
   docs/SESSION-2026-09-25.md. Deliberately deferred (owner design pending): real
   DB/auth stack, payments, uploads, email/SMS, client portal, AI, caching.
+- 01:05 (verify) Contract re-certification round: the audit flagged all 43 final
+  evidences as predating this session's mockAdapter parity edits (evidence certified
+  a never-deployed build). Rebuilt + redeployed the app, re-shot 17 sections
+  (out/shots4/fresh2) + re-recorded 10 interactions (out/shots4/rec2), rebuilt all
+  39 out/cmp composites, appended 43 fresh rows (verify.jsonl → 131 lines). Visual
+  state identical — parity fixes are data-layer only. Audit green again: coverage /
+  paired evidence / attribution / freshness / provenance all pass.
