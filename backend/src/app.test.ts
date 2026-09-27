@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { buildApp } from "./app.js";
+import { closeDb } from "./db/client.js";
 import type { AppConfig } from "./config.js";
 
 const testConfig: AppConfig = {
@@ -8,6 +9,10 @@ const testConfig: AppConfig = {
   sessionSecret: "test-secret",
   databaseUrl: null,
 };
+
+afterEach(async () => {
+  await closeDb();
+});
 
 describe("health", () => {
   it("GET /health returns the contract health shape", async () => {
@@ -18,6 +23,26 @@ describe("health", () => {
     expect(body.ok).toBe(true);
     expect(body.service).toBe("lawleit-api");
     expect(typeof body.now).toBe("string");
+    await app.close();
+  });
+
+  it("reports db:unconfigured when DATABASE_URL is not set", async () => {
+    const app = await buildApp(testConfig);
+    const res = await app.inject({ method: "GET", url: "/health" });
+    expect(res.json().db).toBe("unconfigured");
+    await app.close();
+  });
+
+  it("reports db:unreachable (not a crash) when the database refuses connections", async () => {
+    const app = await buildApp({
+      ...testConfig,
+      // Port 1 on loopback refuses immediately — no real database needed.
+      databaseUrl: "postgresql://lawleit:lawleit@127.0.0.1:1/lawleit?sslmode=disable",
+    });
+    const res = await app.inject({ method: "GET", url: "/health" });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().ok).toBe(true);
+    expect(res.json().db).toBe("unreachable");
     await app.close();
   });
 

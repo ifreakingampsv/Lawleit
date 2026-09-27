@@ -2,6 +2,7 @@ import Fastify, { type FastifyError, type FastifyInstance } from "fastify";
 import cors from "@fastify/cors";
 import { ZodError } from "zod";
 import type { AppConfig } from "./config.js";
+import { closeDb, getDb } from "./db/client.js";
 import { apiRoutes } from "./routes/index.js";
 import { healthRoutes } from "./routes/health.js";
 
@@ -15,6 +16,13 @@ import { healthRoutes } from "./routes/health.js";
  */
 export async function buildApp(config: AppConfig): Promise<FastifyInstance> {
   const app = Fastify({ logger: true });
+
+  // The pool is lazy (no TCP until the first query), so opening it here never
+  // touches the network; with no DATABASE_URL the API simply runs stateless.
+  const db = config.databaseUrl ? getDb(config.databaseUrl) : null;
+  app.addHook("onClose", async () => {
+    await closeDb();
+  });
 
   // Browser origins must be on the allow-list; requests without an Origin
   // header (curl, the vite proxy, server-to-server) are not CORS-governed.
@@ -47,10 +55,10 @@ export async function buildApp(config: AppConfig): Promise<FastifyInstance> {
     reply.status(404).send({ error: `No route: ${request.method} ${path}` });
   });
 
-  await app.register(apiRoutes, { prefix: "/api/v1" });
+  await app.register(apiRoutes, { prefix: "/api/v1", db });
   // The reference backend also serves /health prefixless; the smoke suite and
   // the vite proxy rely on both forms.
-  await app.register(healthRoutes);
+  await app.register(healthRoutes, { db });
 
   return app;
 }

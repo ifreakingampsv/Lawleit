@@ -1,6 +1,14 @@
 import { loadConfig } from "./config.js";
 import { buildApp } from "./app.js";
 
+// Load backend/.env from the process cwd before validating; a missing file is
+// fine (every variable is optional except SESSION_SECRET).
+try {
+  process.loadEnvFile();
+} catch {
+  // No .env — the environment must already carry the required variables.
+}
+
 let config;
 try {
   config = loadConfig();
@@ -18,4 +26,12 @@ try {
 } catch (error) {
   app.log.error(error);
   process.exit(1);
+}
+
+// Draining via app.close() also runs the onClose hook that ends the db pool.
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.on(signal, () => {
+    app.log.info({ signal }, "shutting down");
+    void app.close().finally(() => process.exit(0));
+  });
 }
