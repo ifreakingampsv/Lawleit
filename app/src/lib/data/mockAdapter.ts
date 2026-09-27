@@ -57,9 +57,9 @@ function freshDb(): DB {
     threads: structuredClone(seedThreads),
     leads: structuredClone(seedLeads),
     notifications: [
-      { id: nid("n"), text: `Payment of ${formatINR0(500000)} received from Barbara Jones`, at: new Date(Date.now() - 36e5).toISOString(), read: false, kind: "payment" },
-      { id: nid("n"), text: "Deposition: Marcus Webb tomorrow at 9:30 AM", at: new Date(Date.now() - 72e5).toISOString(), read: false, kind: "deadline" },
-      { id: nid("n"), text: "New message from Elena Vasquez", at: new Date(Date.now() - 180e5).toISOString(), read: false, kind: "message" },
+      { id: nid("n"), text: `Payment of ${formatINR0(500000)} received from Kavita Menon`, at: new Date(Date.now() - 36e5).toISOString(), read: false, kind: "payment" },
+      { id: nid("n"), text: "Deposition: Prem Lal tomorrow at 10:30 AM", at: new Date(Date.now() - 72e5).toISOString(), read: false, kind: "deadline" },
+      { id: nid("n"), text: "New message from Harish Chadha", at: new Date(Date.now() - 180e5).toISOString(), read: false, kind: "message" },
     ],
   };
 }

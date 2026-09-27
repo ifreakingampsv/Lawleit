@@ -160,6 +160,12 @@ function monthlyRevenue(invoices: Invoice[]): [string, number][] {
   ]);
 }
 
+// Seed timekeeper ids — keep in sync with seedUsers (see lib/data/seed.ts).
+const TIMEKEEPER_NAMES: Record<string, string> = {
+  u1: "Arjun Kaul", u2: "Meera Bhatnagar", u3: "Vikram Sethi", u4: "Anjali Deshpande",
+  u5: "Rohan Malhotra", u6: "Sana Qureshi", u7: "Fatima Sheikh",
+};
+
 function hoursPerUser(entries: TimeEntry[]): [string, number, number, number][] {
   const map = new Map<string, { b: number; nb: number; v: number }>();
   entries.forEach((e) => {
@@ -167,7 +173,7 @@ function hoursPerUser(entries: TimeEntry[]): [string, number, number, number][] 
     if (e.billable) { cur.b += e.minutes / 60; cur.v += (e.minutes / 60) * e.rate; } else { cur.nb += e.minutes / 60; }
     map.set(e.userId, cur);
   });
-  return [...map.entries()].map(([id, x]) => [id === "u1" ? "Alex Reed" : id === "u2" ? "Maria Ortiz" : id === "u3" ? "Sam Whitfield" : id, x.b, x.nb, x.v]);
+  return [...map.entries()].map(([id, x]) => [TIMEKEEPER_NAMES[id] ?? id, x.b, x.nb, x.v]);
 }
 
 function stageCounts(cases: Case[]): [string, number][] {

@@ -19,7 +19,7 @@ async function fresh(login = true): Promise<LawleitApi> {
   localStorage.clear();
   sessionStorage.clear();
   const { mockAdapter } = await import("@/lib/data/mockAdapter");
-  if (login) await mockAdapter.login("alex@lawleit.legal", "demo");
+  if (login) await mockAdapter.login("arjun@kaulbhatnagar.example", "demo");
   return mockAdapter;
 }
 
@@ -37,8 +37,8 @@ describe("auth gate", () => {
 
   it("login seeds a session; getSession and logout round-trip", async () => {
     const api = await fresh(false);
-    const session = await api.login("alex@lawleit.legal", "demo");
-    expect(session.user.email.toLowerCase()).toBe("alex@lawleit.legal");
+    const session = await api.login("arjun@kaulbhatnagar.example", "demo");
+    expect(session.user.email.toLowerCase()).toBe("arjun@kaulbhatnagar.example");
     expect(session.firm.name).toBeTruthy();
     expect(session.users.length).toBeGreaterThan(0);
     expect(await api.getSession()).not.toBeNull();
@@ -159,7 +159,7 @@ describe("persistence", () => {
     // simulate an app reload: new module instance, same storage
     vi.resetModules();
     const { mockAdapter: reloaded } = await import("@/lib/data/mockAdapter");
-    await reloaded.login("alex@lawleit.legal", "demo");
+    await reloaded.login("arjun@kaulbhatnagar.example", "demo");
     expect((await reloaded.getCase(created.id))?.title).toBe("Persisted matter");
   });
 });

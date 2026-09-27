@@ -75,9 +75,9 @@ describe("auth", () => {
   });
 
   it("login returns a token-stripped session and stores the token", async () => {
-    const session = await api.login("alex@lawleit.legal", "demo");
+    const session = await api.login("arjun@kaulbhatnagar.example", "demo");
     expect((session as unknown as { token?: string }).token).toBeUndefined();
-    expect(session.user.email.toLowerCase()).toBe("alex@lawleit.legal");
+    expect(session.user.email.toLowerCase()).toBe("arjun@kaulbhatnagar.example");
     expect(session.firm.name).toBeTruthy();
     expect(session.users.length).toBeGreaterThan(0);
     expect(sessionStorage.getItem("lawleit.auth.token")).toBeTruthy();
@@ -159,7 +159,7 @@ describe("leads", () => {
 
 describe("sessions", () => {
   it("logout invalidates the token server-side", async () => {
-    const session = await api.login("alex@lawleit.legal", "demo");
+    const session = await api.login("arjun@kaulbhatnagar.example", "demo");
     expect(session.user).toBeTruthy();
     await api.logout();
     expect(await api.getSession()).toBeNull();
