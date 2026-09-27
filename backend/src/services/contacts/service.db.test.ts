@@ -27,7 +27,7 @@ describe.skipIf(!process.env.DATABASE_URL)("contacts against Postgres", () => {
       // cases/case_number_counters reference contacts/firms (ticket 10);
       // events/tasks reference firms/cases (ticket 11) — cascade would take
       // them anyway; naming them keeps the wipe explicit.
-      "truncate table cases, case_number_counters, contacts, events, tasks, password_reset_tokens, sessions, users, firms cascade",
+      "truncate table cases, case_number_counters, contacts, expenses, events, tasks, time_entries, password_reset_tokens, sessions, users, firms cascade",
     );
   });
 

@@ -7,6 +7,10 @@ import { InMemoryEventRepository } from "../events/in-memory.js";
 import type { EventRow } from "../events/repository.js";
 import { InMemoryTaskRepository } from "../tasks/in-memory.js";
 import type { TaskRow } from "../tasks/repository.js";
+import { InMemoryTimeEntryRepository } from "../time/in-memory.js";
+import type { TimeEntryRow } from "../time/repository.js";
+import { InMemoryExpenseRepository } from "../expenses/in-memory.js";
+import type { ExpenseRow } from "../expenses/repository.js";
 import type {
   AuthRepositories,
   FirmPatch,
@@ -184,13 +188,16 @@ interface Store {
   caseNumbers: Map<string, number>;
   events: EventRow[];
   tasks: TaskRow[];
+  timeEntries: TimeEntryRow[];
+  expenses: ExpenseRow[];
 }
 
 /**
  * Builds one independent in-memory repo set. `transaction` runs the callback
  * against the same store (single-process tests have no partial failure to
  * roll back; the Drizzle impl owns real atomicity). Module repositories
- * (contacts, ticket 09; cases, ticket 10; events + tasks, ticket 11) share
+ * (contacts, ticket 09; cases, ticket 10; events + tasks, ticket 11; time
+ * entries + expenses, ticket 12) share
  * this store so their tests bind the same way.
  */
 export function inMemoryAuthRepositories(): AuthRepositories {
@@ -204,6 +211,8 @@ export function inMemoryAuthRepositories(): AuthRepositories {
     caseNumbers: new Map(),
     events: [],
     tasks: [],
+    timeEntries: [],
+    expenses: [],
   };
   const repos: AuthRepositories = {
     firms: new InMemoryFirmRepository(store),
@@ -215,6 +224,8 @@ export function inMemoryAuthRepositories(): AuthRepositories {
     caseNumbers: new InMemoryCaseNumberRepository(store.caseNumbers),
     events: new InMemoryEventRepository(store.events),
     tasks: new InMemoryTaskRepository(store.tasks),
+    timeEntries: new InMemoryTimeEntryRepository(store.timeEntries),
+    expenses: new InMemoryExpenseRepository(store.expenses),
     async transaction(work) {
       return work(repos);
     },

@@ -18,6 +18,8 @@ import type { CaseNumberRepository, CaseRepository } from "../cases/repository.j
 import type { ContactRepository } from "../contacts/repository.js";
 import type { EventRepository } from "../events/repository.js";
 import type { TaskRepository } from "../tasks/repository.js";
+import type { TimeEntryRepository } from "../time/repository.js";
+import type { ExpenseRepository } from "../expenses/repository.js";
 
 export interface FirmRow {
   id: string;
@@ -192,5 +194,8 @@ export interface AuthRepositories {
   /** Ticket 11: calendar events and tasks ride the same aggregate and seam. */
   events: EventRepository;
   tasks: TaskRepository;
+  /** Ticket 12: time entries and expenses ride the same aggregate and seam. */
+  timeEntries: TimeEntryRepository;
+  expenses: ExpenseRepository;
   transaction<T>(work: (repos: AuthRepositories) => Promise<T>): Promise<T>;
 }

@@ -13,6 +13,10 @@ import { EventsService } from "../services/events/service.js";
 import { eventRoutes } from "./events.js";
 import { TasksService } from "../services/tasks/service.js";
 import { taskRoutes } from "./tasks.js";
+import { TimeEntriesService } from "../services/time/service.js";
+import { timeRoutes } from "./time.js";
+import { ExpensesService } from "../services/expenses/service.js";
+import { expenseRoutes } from "./expenses.js";
 import { DB_REQUIRED, extractToken, requireAuth } from "./requestAuth.js";
 
 export type ProtectedRoutesOptions = {
@@ -83,6 +87,8 @@ export async function protectedRoutes(
   const casesService = repos ? new CasesService(repos) : null;
   const eventsService = repos ? new EventsService(repos) : null;
   const tasksService = repos ? new TasksService(repos) : null;
+  const timeEntriesService = repos ? new TimeEntriesService(repos) : null;
+  const expensesService = repos ? new ExpensesService(repos) : null;
 
   // The guard guarantees services exist whenever a handler runs; the helper
   // narrows the types without assertions.
@@ -127,4 +133,9 @@ export async function protectedRoutes(
   // routes/tasks.ts), same guard, same every-member-manages rule.
   await app.register(eventRoutes, { eventsService });
   await app.register(taskRoutes, { tasksService });
+
+  // Ticket 12: the time-entries + expenses surfaces (routes/time.ts,
+  // routes/expenses.ts), same guard, same every-member-manages rule.
+  await app.register(timeRoutes, { timeEntriesService });
+  await app.register(expenseRoutes, { expensesService });
 }

@@ -19,6 +19,7 @@ import { sql } from "drizzle-orm";
  * Ticket 09 table: contacts.
  * Ticket 10 tables: cases, case_number_counters.
  * Ticket 11 tables: events, tasks.
+ * Ticket 12 tables: time_entries, expenses.
  *
  * Conventions (drizzle/README.md): snake_case names, uuid primary keys with
  * gen_random_uuid() defaults, firm_id uuid not null + index on every tenant
@@ -316,6 +317,99 @@ export const tasks = pgTable(
   ],
 );
 
+/**
+ * Time entries (ticket 12) — the firm's billable work log. Column set mirrors
+ * the contract's TimeEntry (app/src/lib/data/types.ts) 1:1. Deliberate deltas
+ * from the events/tasks links:
+ *
+ * - `case_id` is NOT NULL — a time entry always bills a matter. The reference
+ *   defaults an absent caseId to `db.cases[0]` (its store is newest-first), so
+ *   the service resolves the default to the firm's newest live case; the
+ *   required-FK makes a dangling link impossible where the mock/reference
+ *   would store one. Soft deletes keep the referenced case alive, so no ON
+ *   DELETE action.
+ * - `user_id` has no FK on purpose — the cases.lead_attorney_id /
+ *   tasks.assignee_id pattern for cross-entity soft links (existence is the
+ *   firm-roster's concern, not an insert-time join).
+ * - There is NO amount column: the contract's TimeEntry carries `minutes` and
+ *   `rate` only, and the UI derives value as (minutes / 60) × rate
+ *   client-side (TimePage) — the reference computes nothing server-side
+ *   either, so no rounding policy exists to mirror. `rate` is bigint paise
+ *   (default 300000 = ₹300/hr — the mock adapter's default; the reference's
+ *   300 is its dollar-scale legacy).
+ * - `invoiced` starts false server-side (column default; the service stamps
+ *   it) and is never client-writable — the events.`source` seam treatment.
+ *   Ticket 13's invoice flow flips it through the service seam.
+ *
+ * `date` is a plain `date mode:string` column (the contract carries ISO
+ * YYYY-MM-DD days — the mock/reference default to today's day string and the
+ * UI compares day strings); only the bookkeeping stamps are timestamptz.
+ */
+export const timeEntries = pgTable(
+  "time_entries",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    firmId: uuid("firm_id")
+      .notNull()
+      .references(() => firms.id),
+    caseId: uuid("case_id")
+      .notNull()
+      .references(() => cases.id),
+    userId: uuid("user_id").notNull(),
+    date: date("date", { mode: "string" }).notNull(),
+    minutes: integer("minutes").notNull().default(0),
+    rate: bigint("rate", { mode: "number" }).notNull().default(300000),
+    description: text("description").notNull().default(""),
+    billable: boolean("billable").notNull().default(true),
+    invoiced: boolean("invoiced").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("time_entries_firm_id_idx").on(table.firmId),
+    index("time_entries_case_id_idx").on(table.caseId),
+  ],
+);
+
+/**
+ * Expenses (ticket 12) — case-billed costs reimbursable through invoices.
+ * Column set mirrors the contract's Expense (types.ts) 1:1: `amount` is
+ * bigint integer paise stored verbatim (the client owns the conversion —
+ * rupeesToPaise in the UI; the smoke posts plain integers and reads them back
+ * unchanged), `category` is the contract's five-word vocabulary as text
+ * enforced in the service, and `case_id` is a required FK like
+ * time_entries.case_id (same default-to-newest-live-case service rule, same
+ * no-ON-DELETE rationale). `invoiced` follows the time_entries rule: false
+ * server-side, never client-writable. No unique-ish business fields → no
+ * partial unique indexes (the contacts pattern).
+ */
+export const expenses = pgTable(
+  "expenses",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    firmId: uuid("firm_id")
+      .notNull()
+      .references(() => firms.id),
+    caseId: uuid("case_id")
+      .notNull()
+      .references(() => cases.id),
+    date: date("date", { mode: "string" }).notNull(),
+    description: text("description").notNull().default(""),
+    amount: bigint("amount", { mode: "number" }).notNull().default(0),
+    billable: boolean("billable").notNull().default(true),
+    invoiced: boolean("invoiced").notNull().default(false),
+    category: text("category").notNull().default("other"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("expenses_firm_id_idx").on(table.firmId),
+    index("expenses_case_id_idx").on(table.caseId),
+  ],
+);
+
 export const firmsRelations = relations(firms, ({ many }) => ({
   users: many(users),
   sessions: many(sessions),
@@ -349,6 +443,8 @@ export const casesRelations = relations(cases, ({ one, many }) => ({
   client: one(contacts, { fields: [cases.clientId], references: [contacts.id] }),
   events: many(events),
   tasks: many(tasks),
+  timeEntries: many(timeEntries),
+  expenses: many(expenses),
 }));
 
 export const eventsRelations = relations(events, ({ one }) => ({
@@ -359,4 +455,14 @@ export const eventsRelations = relations(events, ({ one }) => ({
 export const tasksRelations = relations(tasks, ({ one }) => ({
   firm: one(firms, { fields: [tasks.firmId], references: [firms.id] }),
   kase: one(cases, { fields: [tasks.caseId], references: [cases.id] }),
+}));
+
+export const timeEntriesRelations = relations(timeEntries, ({ one }) => ({
+  firm: one(firms, { fields: [timeEntries.firmId], references: [firms.id] }),
+  kase: one(cases, { fields: [timeEntries.caseId], references: [cases.id] }),
+}));
+
+export const expensesRelations = relations(expenses, ({ one }) => ({
+  firm: one(firms, { fields: [expenses.firmId], references: [firms.id] }),
+  kase: one(cases, { fields: [expenses.caseId], references: [cases.id] }),
 }));
