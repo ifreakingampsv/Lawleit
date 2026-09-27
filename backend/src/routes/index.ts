@@ -37,6 +37,6 @@ export async function apiRoutes(
   const cookie: CookieAttrs = options.cookie ?? { sameSite: "lax", secure: false };
 
   await app.register(authRoutes, { authService, cookie });
-  await app.register(protectedRoutes, { authService, repos });
+  await app.register(protectedRoutes, { authService, repos, mailer: options.mailer });
   await app.register(healthRoutes, { db: options.db ?? null });
 }

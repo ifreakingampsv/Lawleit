@@ -2,13 +2,16 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { AuthRepositories } from "../services/auth/repository.js";
 import type { AuthService } from "../services/auth/service.js";
+import type { Mailer } from "../services/auth/mailer.js";
 import { FirmService } from "../services/firm/service.js";
-import { UserService } from "../services/users/service.js";
+import { USER_ROLES, UserService } from "../services/users/service.js";
 import { DB_REQUIRED, extractToken, requireAuth } from "./requestAuth.js";
 
 export type ProtectedRoutesOptions = {
   authService: AuthService | null;
   repos: AuthRepositories | null;
+  /** Ticket 08: invite emails; defaults to the console stub. */
+  mailer?: Mailer;
 };
 
 // zod strips unknown keys, so whole-entity saves from the UI (which send id
@@ -22,9 +25,24 @@ const firmPatchSchema = z.object({
   plan: z.enum(["basic", "pro", "advanced"]).optional(),
 });
 
+const userCreateSchema = z.object({
+  // The string-level message covers a missing/undefined field, the min(1)
+  // one a whitespace-only value: both render "Name is required".
+  name: z.string("Name is required").trim().min(1, "Name is required").max(200),
+  email: z
+    .string("A valid email is required")
+    .trim()
+    .toLowerCase()
+    .max(320, "Email is too long")
+    .pipe(z.email("A valid email is required")),
+  role: z.enum(USER_ROLES, "Role must be owner, attorney, paralegal, or staff"),
+  hourlyRate: z.number().int().min(0).max(1_000_000_000).optional(),
+  avatarColor: z.string().max(20).optional(),
+});
+
 const userPatchSchema = z.object({
   name: z.string().trim().min(1, "Name cannot be empty").max(200).optional(),
-  role: z.enum(["owner", "attorney", "paralegal", "staff"]).optional(),
+  role: z.enum(USER_ROLES).optional(),
   avatarColor: z.string().max(20).optional(),
   hourlyRate: z.number().int().min(0).max(1_000_000_000).optional(),
   active: z.boolean().optional(),
@@ -52,7 +70,7 @@ export async function protectedRoutes(
   });
 
   const firmService = repos ? new FirmService(repos) : null;
-  const userService = repos ? new UserService(repos) : null;
+  const userService = repos ? new UserService(repos, options.mailer) : null;
 
   // The guard guarantees services exist whenever a handler runs; the helper
   // narrows the types without assertions.
@@ -70,11 +88,18 @@ export async function protectedRoutes(
     return reply.send(await service(userService).listByFirm(requireAuth(request).firm.id));
   });
 
+  // Ticket 08: invite. Owner-only (403 for members is the service's call);
+  // 201 with the created user per the contract's POST convention.
+  app.post("/users", async (request, reply) => {
+    const input = userCreateSchema.parse(request.body);
+    const user = await service(userService).create(requireAuth(request).user, input);
+    return reply.status(201).send(user);
+  });
+
   app.patch("/users/:id", async (request, reply) => {
     const patch = userPatchSchema.parse(request.body);
     const { id } = userIdParams.parse(request.params);
-    return reply.send(
-      await service(userService).update(requireAuth(request).firm.id, id, patch),
-    );
+    const auth = requireAuth(request);
+    return reply.send(await service(userService).update(auth.user, auth.firm.id, id, patch));
   });
 }

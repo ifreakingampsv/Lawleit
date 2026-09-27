@@ -194,8 +194,14 @@ export function inMemoryAuthRepositories(): AuthRepositories {
 /** Mailer fake for tests: captures sends instead of logging. */
 export class CapturingMailer {
   readonly sends: { to: string; token: string; expiresAt: string }[] = [];
+  /** Ticket 08: invite emails, same envelope as resets (token is reusable). */
+  readonly invites: { to: string; token: string; expiresAt: string }[] = [];
 
   async sendPasswordReset(email: { to: string; token: string; expiresAt: string }): Promise<void> {
     this.sends.push(email);
+  }
+
+  async sendUserInvite(email: { to: string; token: string; expiresAt: string }): Promise<void> {
+    this.invites.push(email);
   }
 }

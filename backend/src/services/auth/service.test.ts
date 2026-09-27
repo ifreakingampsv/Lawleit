@@ -186,9 +186,9 @@ describe("UserService firm scoping (ticket 07 slice)", () => {
     const repos = inMemoryAuthRepositories();
     const mailer = new CapturingMailer();
     const auth = new AuthService(repos, mailer);
-    const users = new UserService(repos);
+    const users = new UserService(repos, mailer);
 
-    const { token, user, firm } = await auth.register(signupInput);
+    const { user, firm } = await auth.register(signupInput);
     // Set a password first so the login below exercises credentials, not the
     // unset-password path.
     await auth.requestPasswordReset(signupInput.email);
@@ -196,11 +196,21 @@ describe("UserService firm scoping (ticket 07 slice)", () => {
     const session = await auth.login(signupInput.email, "live-password");
     expect(session.token).toBeTruthy();
 
-    await users.update(firm.id, user.id, { active: false });
+    // Ticket 08: the victim is an invited member — the owner (the firm's last
+    // active owner) can no longer deactivate themselves.
+    const member = await users.create(user, {
+      name: "Meera Iyer", email: "meera@kaulbhatnagar.example", role: "attorney",
+    });
+    await auth.consumePasswordReset(mailer.invites[0]!.token, "member-pass-123");
+    const memberLogin = await auth.login("meera@kaulbhatnagar.example", "member-pass-123");
 
-    expect(await auth.authenticate(token)).toBeNull();
-    expect(await auth.authenticate(session.token)).toBeNull();
-    await expect(auth.login(signupInput.email, "live-password")).rejects.toMatchObject({
+    await users.update(user, firm.id, member.id, { active: false });
+
+    // (token, the signup session, died earlier when the owner consumed their
+    // password reset — consumePasswordReset revokes that user's sessions.)
+    expect(await auth.authenticate(memberLogin.token)).toBeNull();
+    expect(await auth.authenticate(session.token)).not.toBeNull();
+    await expect(auth.login("meera@kaulbhatnagar.example", "member-pass-123")).rejects.toMatchObject({
       statusCode: 403,
       message: "Account is deactivated",
     });

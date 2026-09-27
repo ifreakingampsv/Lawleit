@@ -104,7 +104,7 @@ describe.skipIf(!process.env.DATABASE_URL)("auth repositories against Postgres",
 
     // Cross-firm entity access 404s and writes nothing.
     await expect(
-      userService.update(firmB.firm.id, firmA.user.id, { active: false }),
+      userService.update(firmB.user, firmB.firm.id, firmA.user.id, { active: false }),
     ).rejects.toMatchObject({ statusCode: 404, message: "User not found" });
 
     const usersAAfter = await userService.listByFirm(firmA.firm.id);
@@ -143,7 +143,7 @@ describe.skipIf(!process.env.DATABASE_URL)("auth repositories against Postgres",
     const session = await auth.login(registered.user.email, "password-123");
     expect(await auth.authenticate(session.token)).not.toBeNull();
 
-    await userService.update(registered.firm.id, registered.user.id, { active: false });
+    await userService.update(registered.user, registered.firm.id, registered.user.id, { active: false });
     expect(await auth.authenticate(session.token)).toBeNull();
   });
 });

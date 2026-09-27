@@ -11,3 +11,7 @@
 - [ ] Only admins manage users; members cannot (permission check tested)
 - [ ] Cross-firm isolation asserted: admin cannot see or manage another Firm's users
 - [ ] Contract + smoke suites green for the user-management surface
+
+## Comments
+
+- (coordinator, post-build) GAP NOTED for ticket 20: the contract doc has no create-user endpoint; POST /users was implemented additively (201 + created entity, invite token via Mailer). API_CONTRACT.md must document it, and the Settings UI has no invite form yet in mock or http mode (LawleitApi lacks createUser) — either add a small UI invite flow + api method (contract-documented) or explicitly descope UI invites in V1. Owner call at the M2 review.

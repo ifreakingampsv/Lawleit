@@ -32,7 +32,11 @@ export interface AuthResult extends SessionView {
   token: string;
 }
 
-function isUniqueViolation(error: unknown): boolean {
+/**
+ * Postgres unique-violation detector, shared with the users service (ticket
+ * 08) so a raced duplicate email renders as the contract's 409 everywhere.
+ */
+export function isUniqueViolation(error: unknown): boolean {
   return (
     typeof error === "object" &&
     error !== null &&
