@@ -1,5 +1,6 @@
 import { api } from "@/lib/data";
-import { useAsync, money, fmtDate } from "@/lib/hooks";
+import { useAsync, fmtDate } from "@/lib/hooks";
+import { formatINR, formatINR0 } from "@/lib/money";
 import { Card, CardTitle, Table } from "../ui";
 
 export default function AccountingPage() {
@@ -16,7 +17,7 @@ export default function AccountingPage() {
       <div className="mb-5 grid grid-cols-3 gap-5">
         <Card className="p-5">
           <p className="text-[12.5px] font-semibold text-neutral-500">Trust ledger balance</p>
-          <p data-testid="trust-total" className="mt-1 text-[26px] font-extrabold text-neutral-900">{money(total)}</p>
+          <p data-testid="trust-total" className="mt-1 text-[26px] font-extrabold text-neutral-900">{formatINR0(total)}</p>
         </Card>
         <Card className="p-5">
           <p className="text-[12.5px] font-semibold text-neutral-500">Clients with balances</p>
@@ -36,7 +37,7 @@ export default function AccountingPage() {
             <tr key={clientId} className="hover:bg-neutral-50">
               <td className="px-6 py-3.5 font-medium">{(contacts ?? []).find((c) => c.id === clientId)?.name ?? clientId}</td>
               <td className="px-6 py-3.5 text-neutral-500">{(contacts ?? []).find((c) => c.id === clientId)?.caseIds.length ?? 0}</td>
-              <td className="px-6 py-3.5 text-right font-bold">{money(bal)}</td>
+              <td className="px-6 py-3.5 text-right font-bold">{formatINR(bal)}</td>
             </tr>
           ))}
         </Table>
@@ -50,9 +51,9 @@ export default function AccountingPage() {
                 <td className="px-6 py-3">{fmtDate(t.date)}</td>
                 <td className="px-6 py-3">{(contacts ?? []).find((c) => c.id === t.clientId)?.name}</td>
                 <td className="px-6 py-3">{t.description}</td>
-                <td className="px-6 py-3 font-semibold text-emerald-600">{t.amount > 0 ? money(t.amount) : ""}</td>
-                <td className="px-6 py-3 font-semibold text-red-500">{t.amount < 0 ? money(-t.amount) : ""}</td>
-                <td className="px-6 py-3 text-right font-semibold">{money(t.balanceAfter)}</td>
+                <td className="px-6 py-3 font-semibold text-emerald-600">{t.amount > 0 ? formatINR(t.amount) : ""}</td>
+                <td className="px-6 py-3 font-semibold text-red-500">{t.amount < 0 ? formatINR(-t.amount) : ""}</td>
+                <td className="px-6 py-3 text-right font-semibold">{formatINR(t.balanceAfter)}</td>
               </tr>
             ))}
           </Table>

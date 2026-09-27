@@ -95,40 +95,40 @@ describe("billing", () => {
     const iv = await api.createInvoice({
       clientId: contact.id,
       lines: [
-        { id: "l1", description: "Consult", quantity: 2, rate: 150, kind: "time" },
-        { id: "l2", description: "Copies", quantity: 1, rate: 100, kind: "flat" },
+        { id: "l1", description: "Consult", quantity: 2, rate: 15000, kind: "time" },
+        { id: "l2", description: "Copies", quantity: 1, rate: 10000, kind: "flat" },
       ],
     });
     expect(iv.status).toBe("draft");
     await api.updateInvoice(iv.id, { status: "sent" });
 
-    await api.recordPayment({ invoiceId: iv.id, amount: 250, method: "card" });
-    expect((await api.getInvoice(iv.id))?.status).toBe("sent"); // 400 total, 250 paid
+    await api.recordPayment({ invoiceId: iv.id, amount: 25000, method: "card" });
+    expect((await api.getInvoice(iv.id))?.status).toBe("sent"); // 40000 total, 25000 paid
 
-    await api.recordPayment({ invoiceId: iv.id, amount: 150, method: "echeck" });
+    await api.recordPayment({ invoiceId: iv.id, amount: 15000, method: "echeck" });
     expect((await api.getInvoice(iv.id))?.status).toBe("paid");
   });
 
   it("a partially paid draft stays draft (never silently sent)", async () => {
     const api = await fresh();
     const iv = await api.createInvoice({
-      lines: [{ id: "l1", description: "Work", quantity: 1, rate: 500, kind: "time" }],
+      lines: [{ id: "l1", description: "Work", quantity: 1, rate: 50000, kind: "time" }],
     });
-    await api.recordPayment({ invoiceId: iv.id, amount: 100, method: "card" });
+    await api.recordPayment({ invoiceId: iv.id, amount: 10000, method: "card" });
     expect((await api.getInvoice(iv.id))?.status).toBe("draft");
   });
 
   it("trust-account payments append ledger entries with a running balance", async () => {
     const api = await fresh();
     const contact = await api.createContact({ name: "Trust Client" });
-    await api.recordPayment({ invoiceId: "", clientId: contact.id, amount: 500, trustAccount: true });
-    await api.recordPayment({ invoiceId: "", clientId: contact.id, amount: 250, trustAccount: true });
+    await api.recordPayment({ invoiceId: "", clientId: contact.id, amount: 50000, trustAccount: true });
+    await api.recordPayment({ invoiceId: "", clientId: contact.id, amount: 25000, trustAccount: true });
 
     const ledger = await api.listTrustTransactions();
     const mine = ledger.filter((t) => t.clientId === contact.id);
     expect(mine).toHaveLength(2);
-    expect(mine[0].balanceAfter).toBe(500);
-    expect(mine[1].balanceAfter).toBe(750);
+    expect(mine[0].balanceAfter).toBe(50000);
+    expect(mine[1].balanceAfter).toBe(75000);
     expect(mine[1].description).toContain("Trust deposit");
   });
 });

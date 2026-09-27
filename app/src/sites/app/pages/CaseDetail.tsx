@@ -2,7 +2,8 @@ import { Link, useParams } from "react-router";
 import { useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { api } from "@/lib/data";
-import { useAsync, money, hours, fmtDate } from "@/lib/hooks";
+import { useAsync, hours, fmtDate } from "@/lib/hooks";
+import { formatINR, formatINR0 } from "@/lib/money";
 import { Card, CardTitle, StatusPill, Avatar, Modal, Field, inputCls, Table } from "../ui";
 import type { CaseStage } from "@/lib/data";
 
@@ -97,8 +98,8 @@ export default function CaseDetail() {
               <dl className="mt-6 grid grid-cols-2 gap-y-4 text-[13.5px]">
                 <div><dt className="text-neutral-500">Open date</dt><dd className="mt-0.5 font-semibold">{fmtDate(kase.openDate)}</dd></div>
                 <div><dt className="text-neutral-500">Court date</dt><dd className="mt-0.5 font-semibold">{kase.courtDate ? fmtDate(kase.courtDate) : "—"}</dd></div>
-                <div><dt className="text-neutral-500">Billable rate</dt><dd className="mt-0.5 font-semibold">{money(kase.billableRate)}/hr</dd></div>
-                <div><dt className="text-neutral-500">Trust balance</dt><dd className="mt-0.5 font-semibold">{money(kase.trustBalance)}</dd></div>
+                <div><dt className="text-neutral-500">Billable rate</dt><dd className="mt-0.5 font-semibold">{formatINR0(kase.billableRate)}/hr</dd></div>
+                <div><dt className="text-neutral-500">Trust balance</dt><dd className="mt-0.5 font-semibold">{formatINR(kase.trustBalance)}</dd></div>
               </dl>
             </Card>
             <Card className="p-6">
@@ -116,7 +117,7 @@ export default function CaseDetail() {
               <div className="mt-6 rounded-xl bg-neutral-50 p-4">
                 <p className="text-[12px] font-semibold text-neutral-500">Billable to date</p>
                 <p className="text-[22px] font-extrabold">
-                  {money(caseEntries.filter((e) => e.billable).reduce((s, e) => s + (e.minutes / 60) * e.rate, 0))}
+                  {formatINR0(caseEntries.filter((e) => e.billable).reduce((s, e) => s + (e.minutes / 60) * e.rate, 0))}
                 </p>
               </div>
             </Card>
@@ -148,7 +149,7 @@ export default function CaseDetail() {
                   <td className="px-6 py-3">{e.description}</td>
                   <td className="px-6 py-3">{hours(e.minutes)}</td>
                   <td className="px-6 py-3">{e.billable ? "Yes" : "No"}</td>
-                  <td className="px-6 py-3 text-right font-semibold">{money((e.minutes / 60) * e.rate)}</td>
+                  <td className="px-6 py-3 text-right font-semibold">{formatINR((e.minutes / 60) * e.rate)}</td>
                 </tr>
               ))}
               {caseEntries.length === 0 && <tr><td colSpan={5} className="px-6 py-8 text-center text-neutral-400">No time logged.</td></tr>}
@@ -187,7 +188,7 @@ export default function CaseDetail() {
                   <td className="px-6 py-3">{fmtDate(iv.due)}</td>
                   <td className="px-6 py-3"><StatusPill status={iv.status} /></td>
                   <td className="px-6 py-3 text-right font-semibold">
-                    {money(iv.lines.reduce((s, l) => s + l.quantity * l.rate, 0))}
+                    {formatINR(iv.lines.reduce((s, l) => s + l.quantity * l.rate, 0))}
                   </td>
                 </tr>
               ))}

@@ -2,7 +2,13 @@
  * Lawleit domain models — the single source of truth for the data layer.
  * The UI only imports from here; swapping the mock adapter for a real
  * backend means implementing `LawleitApi` (see api.ts) against real endpoints.
+ *
+ * Money fields are integer paise (see `Paise`); field names are unchanged,
+ * so the REST contract and existing call sites stay compatible.
  */
+
+import type { Paise } from "../money";
+export type { Paise };
 
 export type ID = string;
 
@@ -13,7 +19,7 @@ export interface User {
   email: string;
   role: "owner" | "attorney" | "paralegal" | "staff";
   avatarColor: string;
-  hourlyRate: number;
+  hourlyRate: Paise; // per hour
   active: boolean;
 }
 
@@ -51,8 +57,8 @@ export interface Case {
   statute?: string;
   leadAttorneyId: ID;
   description: string;
-  billableRate: number;
-  trustBalance: number;
+  billableRate: Paise; // per hour
+  trustBalance: Paise;
 }
 
 export interface Contact {
@@ -101,7 +107,7 @@ export interface TimeEntry {
   caseId: ID;
   date: string;
   minutes: number;
-  rate: number;
+  rate: Paise; // per hour
   description: string;
   billable: boolean;
   invoiced: boolean;
@@ -112,7 +118,7 @@ export interface Expense {
   caseId: ID;
   date: string;
   description: string;
-  amount: number;
+  amount: Paise;
   billable: boolean;
   invoiced: boolean;
   category: "filing" | "travel" | "copies" | "expert" | "other";
@@ -123,8 +129,8 @@ export type InvoiceStatus = "draft" | "sent" | "overdue" | "paid";
 export interface InvoiceLine {
   id: ID;
   description: string;
-  quantity: number;
-  rate: number;
+  quantity: number; // hours for time lines, units otherwise
+  rate: Paise; // per hour / per unit
   kind: "time" | "expense" | "flat";
 }
 
@@ -145,7 +151,7 @@ export interface Payment {
   invoiceId: ID;
   clientId: ID;
   date: string;
-  amount: number;
+  amount: Paise;
   method: "card" | "echeck" | "wallet";
   status: "pending" | "deposited" | "failed";
   trustAccount: boolean;
@@ -157,8 +163,8 @@ export interface TrustTransaction {
   caseId: ID;
   date: string;
   description: string;
-  amount: number; // + in, - out
-  balanceAfter: number;
+  amount: Paise; // + in, - out
+  balanceAfter: Paise;
 }
 
 export interface DocumentFile {
@@ -199,7 +205,7 @@ export interface Lead {
   source: "website" | "referral" | "call" | "ads" | "walk-in";
   stage: LeadStage;
   practiceArea: string;
-  value: number;
+  value: Paise; // estimated matter value
   createdAt: string;
   notes?: string;
   activity: { at: string; text: string }[];

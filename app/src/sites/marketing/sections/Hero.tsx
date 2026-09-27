@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import EmailCapture from "./EmailCapture";
 import { CheckBadge } from "@/lib/brand";
+import { formatINR, formatINR0 } from "@/lib/money";
 
 const BULLETS = [
   "Capture every lead with customizable intake forms — no chasing details over email",
@@ -80,7 +81,7 @@ function VisualBilling() {
       <Card className="absolute right-0 top-36 w-[230px] p-4">
         <p className="text-[12px] font-bold text-neutral-900">Payment plan insights</p>
         <p className="text-[8px] text-neutral-500">Planned payments · installments over time</p>
-        <p className="mt-1 text-2xl font-extrabold text-neutral-900">$2,750</p>
+        <p className="mt-1 text-2xl font-extrabold text-neutral-900">{formatINR0(27500000)}</p>
         <div className="mt-1 flex items-end gap-2">
           <MiniBarChart teal />
           <div className="flex-1"><MiniLineChart /></div>
@@ -92,7 +93,7 @@ function VisualBilling() {
           <span className="text-[8px] text-[#3dbdb4]">View activity</span>
         </div>
         <p className="text-[8px] text-neutral-400">Account balance</p>
-        <p className="text-xl font-extrabold text-neutral-900">$430,000.00</p>
+        <p className="text-xl font-extrabold text-neutral-900">{formatINR(43000000)}</p>
         <div className="mt-2 flex gap-1.5">
           <div className="h-5 flex-1 rounded-full bg-[#3dbdb4]" />
           <div className="h-5 w-14 rounded-full bg-[#d9f3f0]" />

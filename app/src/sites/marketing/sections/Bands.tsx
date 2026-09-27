@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Info } from "lucide-react";
+import { formatINR0 } from "@/lib/money";
 
 /* ---- Icon grid (S4) ---- */
 
@@ -55,7 +56,7 @@ export function IconGrid() {
 
 const SLIDERS = [
   { label: "Estimated monthly caseload*", min: 5, max: 200, step: 1, def: 60, fmt: (v: number) => `${v} cases` },
-  { label: "Billable rate*", min: 50, max: 800, step: 5, def: 300, fmt: (v: number) => `$${v}` },
+  { label: "Billable rate*", min: 50000, max: 1000000, step: 25000, def: 300000, fmt: (v: number) => formatINR0(v) },
   { label: "Clients billed monthly*", min: 5, max: 300, step: 1, def: 50, fmt: (v: number) => `${v} clients` },
   { label: "Time spent invoicing each client per month*", min: 0.25, max: 4, step: 0.25, def: 1, fmt: (v: number) => `${v} hour` },
   { label: "Overdue invoices*", min: 0, max: 150, step: 1, def: 50, fmt: (v: number) => `${v} invoices` },
@@ -65,7 +66,7 @@ export function RoiCalculator() {
   const [values, setValues] = useState<number[]>(SLIDERS.map((s) => s.def));
   const [monthly, setMonthly] = useState(false);
 
-  // Formula fit to the source defaults (60/$300/50/1h/50 → $158,400 / 276 / 528 annually):
+  // Defaults (60 cases/₹3,000/50 clients/1h/50 overdue → ₹15,84,000 / 276 / 528 annually):
   // reclaimed hours/mo = 0.5·caseload + 0.2·clients + 0.08·overdue = 44
   // revenue = hours × rate × 12 ; more cases = 0.523 × hours × 12
   const hoursMo = 0.5 * values[0] + 0.2 * values[2] + 0.08 * values[4];
@@ -93,7 +94,7 @@ export function RoiCalculator() {
             <div className="p-12 pr-8">
               <p className="text-xs font-bold uppercase tracking-widest text-[#4c4cb8]">Increase revenue by</p>
               <p data-testid="roi-revenue" className="mt-1 text-[44px] font-extrabold leading-none tracking-tight text-[#4c4cb8]">
-                ${revenue.toLocaleString()}
+                {formatINR0(revenue)}
               </p>
               <p className="mt-1 text-xs font-bold uppercase tracking-widest text-[#4c4cb8]">{monthly ? "Monthly" : "Annually"}*</p>
               <div className="my-6 border-t border-neutral-200" />

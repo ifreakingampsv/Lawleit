@@ -109,7 +109,7 @@ const REVIEWS = [
   { quote: "My experience with Lawleit has always been positive. I am able to contact representatives and provide feedback whenever I need to and suggest things that will enhance my experience.", name: "Shannon W." },
   { quote: "The customer service of Lawleit is amazing. Everyone that I talk with on their support line is very knowledgeable of the software. They are always trying to help any way they can.", name: "Renata T." },
   { quote: "Intake to invoice in one system — our collectors finally see the whole picture, and our clients get a modern experience.", name: "Devon L." },
-  { quote: "Trust accounting stopped being scary. Lawleit keeps every dollar flagged, reconciled and audit-ready.", name: "Priya K." },
+  { quote: "Trust accounting stopped being scary. Lawleit keeps every rupee flagged, reconciled and audit-ready.", name: "Priya K." },
 ];
 
 export function Reviews() {

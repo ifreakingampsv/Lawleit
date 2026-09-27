@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { api } from "@/lib/data";
 import { seedReports } from "@/lib/data/seed";
-import { useAsync, money } from "@/lib/hooks";
+import { useAsync } from "@/lib/hooks";
+import { formatINR, formatINR0 } from "@/lib/money";
 import { Card, CardTitle } from "../ui";
 import { cn } from "@/lib/utils";
 import type { Case, Expense, Invoice, Lead, TimeEntry } from "@/lib/data";
@@ -47,7 +48,7 @@ export default function ReportsPage() {
               <div className="flex h-56 items-end gap-3 px-2">
                 {revenueByMonth.map(([label, v]) => (
                   <div key={label} className="flex flex-1 flex-col items-center gap-2">
-                    <span className="text-[11px] font-bold text-neutral-600">{money(v)}</span>
+                    <span className="text-[11px] font-bold text-neutral-600">{formatINR0(v)}</span>
                     <div className="w-full rounded-t-lg bg-lawleit/80" style={{ height: `${Math.max(4, (v / Math.max(...revenueByMonth.map(([, x]) => x), 1)) * 170)}px` }} />
                     <span className="text-[11px] text-neutral-500">{label}</span>
                   </div>
@@ -68,7 +69,7 @@ export default function ReportsPage() {
                       <td className="py-3 font-medium">{name}</td>
                       <td className="py-3">{bill.toFixed(1)}</td>
                       <td className="py-3">{nonBill.toFixed(1)}</td>
-                      <td className="py-3 text-right font-bold">{money(value)}</td>
+                      <td className="py-3 text-right font-bold">{formatINR(value)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -102,7 +103,7 @@ export default function ReportsPage() {
                     <tr key={i.id}>
                       <td className="py-3 font-medium">{i.number}</td>
                       <td className="py-3 capitalize">{i.status}</td>
-                      <td className="py-3 text-right font-bold">{money(i.lines.reduce((s, l) => s + l.quantity * l.rate, 0))}</td>
+                      <td className="py-3 text-right font-bold">{formatINR(i.lines.reduce((s, l) => s + l.quantity * l.rate, 0))}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -135,7 +136,7 @@ export default function ReportsPage() {
                     <tr key={number}>
                       <td className="py-3 font-medium">{number}</td>
                       <td className="py-3">{n}</td>
-                      <td className="py-3 text-right font-bold">{money(total)}</td>
+                      <td className="py-3 text-right font-bold">{formatINR(total)}</td>
                     </tr>
                   ))}
                 </tbody>

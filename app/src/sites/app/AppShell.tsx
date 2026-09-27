@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router";
 import {
-  Bell, ChevronDown, ChevronRight, CircleDollarSign, Clock, FileText, Folder,
-  Gauge, Home, LayoutGrid, LogOut, Menu, MessagesSquare, Play, Plus, Search,
+  Bell, ChevronDown, ChevronRight, Clock, FileText, Folder,
+  Gauge, Home, IndianRupee, LayoutGrid, LogOut, Menu, MessagesSquare, Play, Plus, Search,
   Settings, Square, Users,
 } from "lucide-react";
 import { GemMark, Logo } from "@/lib/brand";
 import { api } from "@/lib/data";
-import { useAsync, money } from "@/lib/hooks";
+import { useAsync } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
 import type { TimeEntry, User } from "@/lib/data";
 import type { TimerState } from "./context";
@@ -52,8 +52,8 @@ const NAV = [
 ];
 const MODULES = [
   { to: "/app/billing/invoices", label: "Billing", icon: FileText },
-  { to: "/app/payments", label: "Payments", icon: CircleDollarSign },
-  { to: "/app/accounting", label: "Accounting", icon: CircleDollarSign },
+  { to: "/app/payments", label: "Payments", icon: IndianRupee },
+  { to: "/app/accounting", label: "Accounting", icon: IndianRupee },
   { to: "/app/documents", label: "Documents", icon: FileText },
   { to: "/app/communications", label: "Communications", icon: MessagesSquare },
   { to: "/app/leads", label: "Leads", icon: LayoutGrid },
@@ -238,4 +238,4 @@ function GlobalSearch({ query, onDone }: { query: string; onDone: () => void }) 
   );
 }
 
-export { hhmmss, money };
+export { hhmmss };

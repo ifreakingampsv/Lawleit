@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/data";
-import { useAsync, money, hours, fmtDate } from "@/lib/hooks";
+import { useAsync, hours, fmtDate } from "@/lib/hooks";
+import { formatINR, formatINR0, rupeesToPaise } from "@/lib/money";
 import { Card, Modal, NewButton, PageHeader, Field, inputCls, Table } from "../ui";
 import type { Expense, TimeEntry } from "@/lib/data";
 
@@ -10,7 +11,7 @@ export default function TimePage({ tab = "time" }: { tab?: "time" | "expenses" }
   const { data: cases } = useAsync(() => api.listCases(), []);
   const { data: session } = useAsync(() => api.getSession(), []);
   const [creating, setCreating] = useState(false);
-  const [form, setForm] = useState({ caseId: "", date: new Date().toISOString().slice(0, 10), minutes: "60", description: "", amount: "100", category: "filing" });
+  const [form, setForm] = useState({ caseId: "", date: new Date().toISOString().slice(0, 10), minutes: "60", description: "", amount: "500", category: "filing" });
 
   useEffect(() => {
     const handler = () => refetch();
@@ -25,7 +26,7 @@ export default function TimePage({ tab = "time" }: { tab?: "time" | "expenses" }
         caseId: form.caseId || (cases ?? [])[0]?.id,
         date: form.date, minutes: Number(form.minutes) || 30,
         description: form.description || "Time entry",
-        rate: (cases ?? []).find((c) => c.id === form.caseId)?.billableRate ?? 300,
+        rate: (cases ?? []).find((c) => c.id === form.caseId)?.billableRate ?? 300000,
         userId: session?.user.id,
         billable: true,
       });
@@ -34,7 +35,7 @@ export default function TimePage({ tab = "time" }: { tab?: "time" | "expenses" }
       await api.createExpense({
         caseId: form.caseId || (cases ?? [])[0]?.id,
         date: form.date, description: form.description || "Expense",
-        amount: Number(form.amount) || 0, category: form.category as Expense["category"],
+        amount: rupeesToPaise(Number(form.amount)) || 0, category: form.category as Expense["category"],
       });
       refetchExp();
     }
@@ -50,7 +51,7 @@ export default function TimePage({ tab = "time" }: { tab?: "time" | "expenses" }
     <div data-testid={isTime ? "time-page" : "expenses-page"} className="px-8 pb-12">
       <PageHeader
         title={isTime ? "Time tracking" : "Expenses"}
-        subtitle={isTime ? "Today: " + money(dayTotal) + " · This week: " + money(weekTotal) : "Advanced costs, billed back to clients"}
+        subtitle={isTime ? "Today: " + formatINR0(dayTotal) + " · This week: " + formatINR0(weekTotal) : "Advanced costs, billed back to clients"}
         actions={<NewButton testid={isTime ? "time-new" : "expense-new"} label={isTime ? "Add time entry" : "Add expense"} onClick={() => setCreating(true)} />}
       />
       {isTime ? (
@@ -63,8 +64,8 @@ export default function TimePage({ tab = "time" }: { tab?: "time" | "expenses" }
                 <td className="px-6 py-3">{e.description}</td>
                 <td className="px-6 py-3">{hours(e.minutes)}</td>
                 <td className="px-6 py-3">{e.billable ? "Yes" : "No"}</td>
-                <td className="px-6 py-3">{money(e.rate)}</td>
-                <td className="px-6 py-3 font-semibold">{money((e.minutes / 60) * e.rate)}</td>
+                <td className="px-6 py-3">{formatINR0(e.rate)}</td>
+                <td className="px-6 py-3 font-semibold">{formatINR((e.minutes / 60) * e.rate)}</td>
                 <td className="px-6 py-3 text-right">
                   <button onClick={async () => { await api.deleteTimeEntry(e.id); refetch(); }} className="text-[12px] font-semibold text-red-500 hover:underline">Delete</button>
                 </td>
@@ -82,7 +83,7 @@ export default function TimePage({ tab = "time" }: { tab?: "time" | "expenses" }
                 <td className="px-6 py-3">{x.description}</td>
                 <td className="px-6 py-3 capitalize">{x.category}</td>
                 <td className="px-6 py-3">{x.billable ? "Yes" : "No"}</td>
-                <td className="px-6 py-3 font-semibold">{money(x.amount)}</td>
+                <td className="px-6 py-3 font-semibold">{formatINR(x.amount)}</td>
                 <td className="px-6 py-3 text-right">
                   <button onClick={async () => { await api.deleteExpense(x.id); refetchExp(); }} className="text-[12px] font-semibold text-red-500 hover:underline">Delete</button>
                 </td>
@@ -103,7 +104,7 @@ export default function TimePage({ tab = "time" }: { tab?: "time" | "expenses" }
             <Field label="Date"><input type="date" className={inputCls} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></Field>
             {isTime
               ? <Field label="Minutes"><input data-testid="time-minutes" type="number" className={inputCls} value={form.minutes} onChange={(e) => setForm({ ...form, minutes: e.target.value })} /></Field>
-              : <Field label="Amount ($)"><input data-testid="expense-amount" type="number" className={inputCls} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></Field>}
+              : <Field label="Amount (₹)"><input data-testid="expense-amount" type="number" className={inputCls} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></Field>}
           </div>
           <Field label="Description"><input data-testid="time-description" className={inputCls} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></Field>
           {!isTime && (

@@ -1,5 +1,7 @@
 /* Feature sections (S8–S11): AI, lead management, case management, billing. */
 
+import { formatINR0 } from "@/lib/money";
+
 export function PlayButton({ className = "" }: { className?: string }) {
   return (
     <span className={`flex h-16 w-24 items-center justify-center rounded-xl bg-neutral-900/85 ${className}`}>
@@ -245,7 +247,7 @@ export function BillingSection() {
             <div className="mt-4 grid grid-cols-[1fr_1.3fr] gap-4">
               <div className="rounded-xl bg-[#fdf3ef] p-4">
                 <p className="text-[10px] text-neutral-500">Planned payments</p>
-                <p className="text-3xl font-extrabold text-neutral-900">$2,750</p>
+                <p className="text-3xl font-extrabold text-neutral-900">{formatINR0(27500000)}</p>
                 <div className="mt-3 flex h-16">
                   <div className="w-[62%] bg-[#d96342]" />
                   <div className="w-[38%] bg-[#f6ded4]" />

@@ -1,7 +1,8 @@
 import { Link, useOutletContext } from "react-router";
 import { CalendarDays, MessageSquare, Plus, Timer } from "lucide-react";
 import { api } from "@/lib/data";
-import { money, hours, fmtDate, useAsync } from "@/lib/hooks";
+import { hours, fmtDate, useAsync } from "@/lib/hooks";
+import { formatINR, formatINR0 } from "@/lib/money";
 import { Card, CardTitle, StatusPill } from "../ui";
 import type { TimeEntry } from "@/lib/data";
 import type { AppShellContext } from "../context";
@@ -65,7 +66,7 @@ export default function Dashboard() {
             <div className="grid grid-cols-[auto_1fr] gap-8 px-6 pb-6">
               <div>
                 <p className="text-[12px] font-semibold uppercase tracking-wide text-neutral-500">Billable total</p>
-                <p data-testid="dashboard-billable-total" className="text-[34px] font-extrabold tracking-tight text-neutral-900">{money(billableTotal)}</p>
+                <p data-testid="dashboard-billable-total" className="text-[34px] font-extrabold tracking-tight text-neutral-900">{formatINR0(billableTotal)}</p>
                 <p className="mt-0.5 text-[12.5px] text-neutral-500">
                   {hours(billableMin)} hrs billable · {hours(nonBillableMin)} hrs non-billable
                 </p>
@@ -100,7 +101,7 @@ export default function Dashboard() {
                         <td className="py-2.5 font-semibold">{label}</td>
                         <td className="py-2.5">{hours(b)}</td>
                         <td className="py-2.5">{hours(nb)}</td>
-                        <td className="py-2.5 text-right font-bold">{money(total)}</td>
+                        <td className="py-2.5 text-right font-bold">{formatINR(total)}</td>
                       </tr>
                     );
                   })}
@@ -122,7 +123,7 @@ export default function Dashboard() {
                     <td className="py-3 text-neutral-500">{(cases ?? []).find((c) => c.id === e.caseId)?.number}</td>
                     <td className="py-3">{hours(e.minutes)} hrs</td>
                     <td className="py-3">{e.billable ? <StatusPill status="open" /> : <StatusPill status="closed" />}</td>
-                    <td className="px-6 py-3 text-right font-semibold">{money((e.minutes / 60) * e.rate)}</td>
+                    <td className="px-6 py-3 text-right font-semibold">{formatINR((e.minutes / 60) * e.rate)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -136,8 +137,8 @@ export default function Dashboard() {
             </CardTitle>
             <div className="grid grid-cols-3 gap-4 px-6 pb-6">
               {[
-                ["Outstanding invoices", money(outstanding), "/app/billing/invoices"],
-                ["Trust account balance", money(trustTotal), "/app/accounting"],
+                ["Outstanding invoices", formatINR0(outstanding), "/app/billing/invoices"],
+                ["Trust account balance", formatINR0(trustTotal), "/app/accounting"],
                 ["Open matters", String(openCases), "/app/cases"],
               ].map(([label, value, to]) => (
                 <Link key={label} to={to} className="rounded-xl border border-neutral-100 bg-neutral-50/60 p-4 hover:border-lawleit/40">

@@ -23,9 +23,6 @@ export function useSession() {
   return useAsync<Session | null>(() => api.getSession(), []);
 }
 
-export const money = (n: number) =>
-  n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: n % 1 === 0 ? 0 : 2 });
-
 export const hours = (minutes: number) => (minutes / 60).toFixed(1);
 
 export const fmtDate = (iso: string) =>

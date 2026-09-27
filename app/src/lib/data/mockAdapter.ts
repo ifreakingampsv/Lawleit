@@ -4,6 +4,7 @@ import type {
   Lead, MessageThread, Notification, Payment, ReportDef, Session, Task,
   TimeEntry, TrustTransaction, User,
 } from "./types";
+import { formatINR0 } from "../money";
 import {
   seedCases, seedContacts, seedDocuments, seedEvents, seedExpenses, seedFirm,
   seedInvoices, seedLeads, seedPayments, seedReports, seedTasks, seedThreads,
@@ -16,7 +17,9 @@ import {
  * See docs/API_CONTRACT.md for the REST mapping a real backend should expose.
  */
 
-const LS_KEY = "lawleit.db.v1";
+// v2: money fields became integer paise — old v1 databases hold dollar-scale
+// amounts, so they are discarded and the demo reseeds.
+const LS_KEY = "lawleit.db.v2";
 const SS_KEY = "lawleit.session.v1";
 
 interface DB {
@@ -54,7 +57,7 @@ function freshDb(): DB {
     threads: structuredClone(seedThreads),
     leads: structuredClone(seedLeads),
     notifications: [
-      { id: nid("n"), text: "Payment of $500.00 received from Barbara Jones", at: new Date(Date.now() - 36e5).toISOString(), read: false, kind: "payment" },
+      { id: nid("n"), text: `Payment of ${formatINR0(500000)} received from Barbara Jones`, at: new Date(Date.now() - 36e5).toISOString(), read: false, kind: "payment" },
       { id: nid("n"), text: "Deposition: Marcus Webb tomorrow at 9:30 AM", at: new Date(Date.now() - 72e5).toISOString(), read: false, kind: "deadline" },
       { id: nid("n"), text: "New message from Elena Vasquez", at: new Date(Date.now() - 180e5).toISOString(), read: false, kind: "message" },
     ],
@@ -114,7 +117,7 @@ class MockAdapter implements LawleitApi {
     await latency(400);
     const user: User = {
       id: nid("u"), firmId: "f1", name: `${input.firstName} ${input.lastName}`.trim() || "Firm Owner",
-      email: input.email, role: "owner", avatarColor: "#4B4ACF", hourlyRate: 300, active: true,
+      email: input.email, role: "owner", avatarColor: "#4B4ACF", hourlyRate: 300000, active: true,
     };
     this.db.users = [user, ...this.db.users.filter((u) => u.role !== "owner")];
     this.db.firm = {
@@ -170,7 +173,7 @@ class MockAdapter implements LawleitApi {
       stage: input.stage ?? "intake", status: input.status ?? "open",
       openDate: new Date().toISOString().slice(0, 10),
       leadAttorneyId: input.leadAttorneyId ?? this.db.users[0].id,
-      description: input.description ?? "", billableRate: input.billableRate ?? 300, trustBalance: 0,
+      description: input.description ?? "", billableRate: input.billableRate ?? 300000, trustBalance: 0,
     };
     this.db.cases.unshift(c);
     this.save();
@@ -287,7 +290,7 @@ class MockAdapter implements LawleitApi {
       id: nid("te"), userId: input.userId ?? this.db.users[0].id,
       caseId: input.caseId ?? this.db.cases[0]?.id ?? "k1",
       date: input.date ?? new Date().toISOString().slice(0, 10),
-      minutes: input.minutes ?? 0, rate: input.rate ?? 300,
+      minutes: input.minutes ?? 0, rate: input.rate ?? 300000,
       description: input.description ?? "", billable: input.billable ?? true, invoiced: false,
     };
     this.db.timeEntries.unshift(t);
@@ -502,7 +505,7 @@ class MockAdapter implements LawleitApi {
       practiceArea: l.practiceArea, stage: "intake", status: "open",
       openDate: new Date().toISOString().slice(0, 10),
       leadAttorneyId: this.db.users[0].id, description: caseInput.description ?? "",
-      billableRate: 300, trustBalance: 0,
+      billableRate: 300000, trustBalance: 0,
     };
     this.db.cases.unshift(k);
     contact.caseIds.push(k.id);

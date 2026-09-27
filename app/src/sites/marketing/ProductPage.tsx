@@ -4,6 +4,7 @@ import SiteHeader from "./SiteHeader";
 import SiteFooter from "./SiteFooter";
 import EmailCapture from "./sections/EmailCapture";
 import { cn } from "@/lib/utils";
+import { formatINR0 } from "@/lib/money";
 
 interface FeatureSectionSpec {
   title: string;
@@ -137,7 +138,7 @@ export const PRODUCTS: ProductSpec[] = [
       { title: "Trust Accounting", sub: "IOLTA compliance made simple", layout: "text-left", visual: "invoice",
         bullets: [
           { lead: "Three-Way Reconciliation.", text: "Bank, ledger, and client balances always agree." },
-          { lead: "Safeguarding.", text: "Every dollar tagged to a client and matter, audit-ready." },
+          { lead: "Safeguarding.", text: "Every rupee tagged to a client and matter, audit-ready." },
           { lead: "Reporting.", text: "Revenue, AR aging, and productivity reports out of the box." },
           { lead: "Accounting Sync.", text: "Optional Lawleit Accounting add-on for full general-ledger clarity." },
         ] },
@@ -198,7 +199,7 @@ function Visual({ kind }: { kind: FeatureSectionSpec["visual"] }) {
         <div className="mt-4 space-y-3">
           {[["Bankruptcy", 72, "#4B4ACF"], ["Family Law", 54, "#6f6ce0"], ["Personal Injury", 41, "#8f8ce0"], ["Estate Planning", 30, "#b7b5ef"]].map(([area, w, c]) => (
             <div key={String(area)}>
-              <div className="flex justify-between text-[12px] text-neutral-600"><span>{area}</span><span className="font-semibold text-neutral-800">${(Number(w) * 137).toLocaleString()}</span></div>
+              <div className="flex justify-between text-[12px] text-neutral-600"><span>{area}</span><span className="font-semibold text-neutral-800">{formatINR0(Number(w) * 137000)}</span></div>
               <div className="mt-1 h-3 rounded-md bg-neutral-100"><div className="h-3 rounded-md" style={{ width: `${w}%`, background: String(c) }} /></div>
             </div>
           ))}
@@ -254,7 +255,7 @@ function Visual({ kind }: { kind: FeatureSectionSpec["visual"] }) {
           <div className="flex justify-between border-b border-neutral-200 bg-neutral-50 px-3 py-2 text-[11px] font-semibold text-neutral-600">
             <span>Description</span><span>Hours</span><span>Rate</span><span>Amount</span>
           </div>
-          {[["Consultation re: estate plan", "1.5", "$250", "$375"], ["Draft retainer agreement", "1.0", "$250", "$250"]].map((r) => (
+          {[["Consultation re: estate plan", "1.5", "₹3,000", "₹4,500"], ["Draft retainer agreement", "1.0", "₹3,000", "₹3,000"]].map((r) => (
             <div key={String(r[0])} className="flex justify-between px-3 py-2 text-[12px] text-neutral-700">
               <span className="w-1/2">{r[0]}</span><span>{r[1]}</span><span>{r[2]}</span><span className="font-semibold">{r[3]}</span>
             </div>

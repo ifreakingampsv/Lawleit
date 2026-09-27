@@ -1,7 +1,8 @@
 import { Link, useSearchParams } from "react-router";
 import { useState } from "react";
 import { api } from "@/lib/data";
-import { useAsync, money, fmtDate } from "@/lib/hooks";
+import { useAsync, fmtDate } from "@/lib/hooks";
+import { formatINR, formatINR0, rupeesToPaise } from "@/lib/money";
 import { Card, Modal, NewButton, PageHeader, Field, inputCls, StatusPill, Avatar, Table } from "../ui";
 import type { Case } from "@/lib/data";
 
@@ -12,14 +13,14 @@ export default function CasesPage() {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | Case["status"]>("all");
   const [creating, setCreating] = useState(params.get("new") === "1");
-  const [form, setForm] = useState({ title: "", clientId: "", practiceArea: "Family Law", billableRate: "300", description: "" });
+  const [form, setForm] = useState({ title: "", clientId: "", practiceArea: "Family Law", billableRate: "3000", description: "" });
 
   const create = async () => {
     await api.createCase({
       title: form.title || "New matter",
       clientId: form.clientId || (contacts ?? [])[0]?.id,
       practiceArea: form.practiceArea,
-      billableRate: Number(form.billableRate) || 300,
+      billableRate: rupeesToPaise(Number(form.billableRate)) || 300000,
       description: form.description,
     });
     setCreating(false);
@@ -72,8 +73,8 @@ export default function CasesPage() {
                 <td className="px-6 py-3.5 capitalize">{c.stage}</td>
                 <td className="px-6 py-3.5"><StatusPill status={c.status} /></td>
                 <td className="px-6 py-3.5">{fmtDate(c.openDate)}</td>
-                <td className="px-6 py-3.5">{money(c.trustBalance)}</td>
-                <td className="px-6 py-3.5">{money(c.billableRate)}/hr</td>
+                <td className="px-6 py-3.5">{formatINR(c.trustBalance)}</td>
+                <td className="px-6 py-3.5">{formatINR0(c.billableRate)}/hr</td>
               </tr>
             );
           })}
@@ -95,7 +96,7 @@ export default function CasesPage() {
               </select>
             </Field>
           </div>
-          <Field label="Billable rate ($/hr)"><input type="number" className={inputCls} value={form.billableRate} onChange={(e) => setForm({ ...form, billableRate: e.target.value })} /></Field>
+          <Field label="Billable rate (₹/hr)"><input type="number" className={inputCls} value={form.billableRate} onChange={(e) => setForm({ ...form, billableRate: e.target.value })} /></Field>
           <Field label="Description"><textarea className={inputCls} rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></Field>
           <button data-testid="case-save" onClick={create} className="w-full rounded-full bg-lawleit py-2.5 text-[14px] font-bold text-white hover:bg-lawleit-dark">Create case</button>
         </div>

@@ -14,10 +14,10 @@ const d = (offset: number) => {
 const dt = (offset: number, time: string) => `${d(offset)}T${time}:00`;
 
 export const seedUsers: User[] = [
-  { id: "u1", firmId: "f1", name: "Alex Reed", email: "alex@lawleit.legal", role: "owner", avatarColor: "#4B4ACF", hourlyRate: 300, active: true },
-  { id: "u2", firmId: "f1", name: "Maria Ortiz", email: "maria@lawleit.legal", role: "attorney", avatarColor: "#3DBDB4", hourlyRate: 250, active: true },
-  { id: "u3", firmId: "f1", name: "Sam Whitfield", email: "sam@lawleit.legal", role: "paralegal", avatarColor: "#E0876A", hourlyRate: 150, active: true },
-  { id: "u4", firmId: "f1", name: "Priya Nair", email: "priya@lawleit.legal", role: "staff", avatarColor: "#8B7FD4", hourlyRate: 120, active: true },
+  { id: "u1", firmId: "f1", name: "Alex Reed", email: "alex@lawleit.legal", role: "owner", avatarColor: "#4B4ACF", hourlyRate: 300000, active: true },
+  { id: "u2", firmId: "f1", name: "Maria Ortiz", email: "maria@lawleit.legal", role: "attorney", avatarColor: "#3DBDB4", hourlyRate: 250000, active: true },
+  { id: "u3", firmId: "f1", name: "Sam Whitfield", email: "sam@lawleit.legal", role: "paralegal", avatarColor: "#E0876A", hourlyRate: 150000, active: true },
+  { id: "u4", firmId: "f1", name: "Priya Nair", email: "priya@lawleit.legal", role: "staff", avatarColor: "#8B7FD4", hourlyRate: 120000, active: true },
 ];
 
 export const seedFirm: Firm = {
@@ -41,12 +41,12 @@ export const seedContacts: Contact[] = [
 ];
 
 export const seedCases: Case[] = [
-  { id: "k1", number: "2025-0187", title: "Jones vs. XYZ Logistics", clientId: "c1", practiceArea: "Personal Injury", stage: "discovery", status: "open", openDate: d(-180), courtDate: d(45), leadAttorneyId: "u1", description: "Rear-end collision on I-90; client claims whiplash and lost wages. Discovery ongoing, depositions scheduled.", billableRate: 300, trustBalance: 4200 },
-  { id: "k2", number: "2025-0204", title: "Bryant Estate Planning", clientId: "c2", practiceArea: "Estate Planning", stage: "consult", status: "open", openDate: d(-90), leadAttorneyId: "u2", description: "Revocable living trust, pour-over will, healthcare directives. Awaiting signed engagement documents.", billableRate: 250, trustBalance: 1500 },
-  { id: "k3", number: "2026-0009", title: "Jones Custody Modification", clientId: "c1", practiceArea: "Family Law", stage: "court date pending", status: "open", openDate: d(-30), courtDate: d(12), leadAttorneyId: "u1", description: "Modification of parenting schedule following relocation of former spouse.", billableRate: 300, trustBalance: 2500 },
-  { id: "k4", number: "2026-0021", title: "Vasquez Immigration Petition", clientId: "c3", practiceArea: "Immigration", stage: "intake", status: "pending", openDate: d(-14), leadAttorneyId: "u2", description: "Family-based adjustment of status. RFE response due.", billableRate: 250, trustBalance: 800 },
-  { id: "k5", number: "2024-0110", title: "Lakeshore MSA Review", clientId: "c4", practiceArea: "Business Law", stage: "negotiation", status: "open", openDate: d(-260), leadAttorneyId: "u1", description: "Master services agreement renegotiation with indemnity carve-outs.", billableRate: 350, trustBalance: 6100 },
-  { id: "k6", number: "2024-0033", title: "Doe Uncontested Divorce", clientId: "c6", practiceArea: "Family Law", stage: "resolved", status: "closed", openDate: d(-380), leadAttorneyId: "u2", description: "Uncontested dissolution; judgment entered.", billableRate: 250, trustBalance: 0 },
+  { id: "k1", number: "2025-0187", title: "Jones vs. XYZ Logistics", clientId: "c1", practiceArea: "Personal Injury", stage: "discovery", status: "open", openDate: d(-180), courtDate: d(45), leadAttorneyId: "u1", description: "Rear-end collision on I-90; client claims whiplash and lost wages. Discovery ongoing, depositions scheduled.", billableRate: 300000, trustBalance: 17500000 },
+  { id: "k2", number: "2025-0204", title: "Bryant Estate Planning", clientId: "c2", practiceArea: "Estate Planning", stage: "consult", status: "open", openDate: d(-90), leadAttorneyId: "u2", description: "Revocable living trust, pour-over will, healthcare directives. Awaiting signed engagement documents.", billableRate: 250000, trustBalance: 7500000 },
+  { id: "k3", number: "2026-0009", title: "Jones Custody Modification", clientId: "c1", practiceArea: "Family Law", stage: "court date pending", status: "open", openDate: d(-30), courtDate: d(12), leadAttorneyId: "u1", description: "Modification of parenting schedule following relocation of former spouse.", billableRate: 300000, trustBalance: 5000000 },
+  { id: "k4", number: "2026-0021", title: "Vasquez Immigration Petition", clientId: "c3", practiceArea: "Immigration", stage: "intake", status: "pending", openDate: d(-14), leadAttorneyId: "u2", description: "Family-based adjustment of status. RFE response due.", billableRate: 250000, trustBalance: 2500000 },
+  { id: "k5", number: "2024-0110", title: "Lakeshore MSA Review", clientId: "c4", practiceArea: "Business Law", stage: "negotiation", status: "open", openDate: d(-260), leadAttorneyId: "u1", description: "Master services agreement renegotiation with indemnity carve-outs.", billableRate: 350000, trustBalance: 22500000 },
+  { id: "k6", number: "2024-0033", title: "Doe Uncontested Divorce", clientId: "c6", practiceArea: "Family Law", stage: "resolved", status: "closed", openDate: d(-380), leadAttorneyId: "u2", description: "Uncontested dissolution; judgment entered.", billableRate: 250000, trustBalance: 0 },
 ];
 
 export const seedEvents: CalendarEvent[] = [
@@ -71,28 +71,28 @@ export const seedTasks: Task[] = [
 ];
 
 export const seedTimeEntries: TimeEntry[] = [
-  { id: "te1", userId: "u1", caseId: "k1", date: d(0), minutes: 82, rate: 300, description: "Deposition prep and outline", billable: true, invoiced: false },
-  { id: "te2", userId: "u1", caseId: "k5", date: d(0), minutes: 64, rate: 350, description: "MSA redlines", billable: true, invoiced: false },
-  { id: "te3", userId: "u2", caseId: "k4", date: d(0), minutes: 95, rate: 250, description: "RFE response drafting", billable: true, invoiced: false },
-  { id: "te4", userId: "u3", caseId: "k1", date: d(0), minutes: 120, rate: 150, description: "Records retrieval and organization", billable: false, invoiced: false },
-  { id: "te5", userId: "u1", caseId: "k1", date: d(-1), minutes: 110, rate: 300, description: "Client call and strategy", billable: true, invoiced: false },
-  { id: "te6", userId: "u2", caseId: "k2", date: d(-1), minutes: 75, rate: 250, description: "Estate questionnaire review", billable: true, invoiced: false },
-  { id: "te7", userId: "u1", caseId: "k3", date: d(-2), minutes: 130, rate: 300, description: "Motion drafting", billable: true, invoiced: false },
-  { id: "te8", userId: "u3", caseId: "k1", date: d(-2), minutes: 180, rate: 150, description: "Exhibit scanning", billable: false, invoiced: false },
-  { id: "te9", userId: "u1", caseId: "k1", date: d(-3), minutes: 95, rate: 300, description: "Meet with client", billable: true, invoiced: false },
-  { id: "te10", userId: "u2", caseId: "k4", date: d(-3), minutes: 60, rate: 250, description: "USCIS portal upload", billable: true, invoiced: false },
+  { id: "te1", userId: "u1", caseId: "k1", date: d(0), minutes: 82, rate: 300000, description: "Deposition prep and outline", billable: true, invoiced: false },
+  { id: "te2", userId: "u1", caseId: "k5", date: d(0), minutes: 64, rate: 350000, description: "MSA redlines", billable: true, invoiced: false },
+  { id: "te3", userId: "u2", caseId: "k4", date: d(0), minutes: 95, rate: 250000, description: "RFE response drafting", billable: true, invoiced: false },
+  { id: "te4", userId: "u3", caseId: "k1", date: d(0), minutes: 120, rate: 150000, description: "Records retrieval and organization", billable: false, invoiced: false },
+  { id: "te5", userId: "u1", caseId: "k1", date: d(-1), minutes: 110, rate: 300000, description: "Client call and strategy", billable: true, invoiced: false },
+  { id: "te6", userId: "u2", caseId: "k2", date: d(-1), minutes: 75, rate: 250000, description: "Estate questionnaire review", billable: true, invoiced: false },
+  { id: "te7", userId: "u1", caseId: "k3", date: d(-2), minutes: 130, rate: 300000, description: "Motion drafting", billable: true, invoiced: false },
+  { id: "te8", userId: "u3", caseId: "k1", date: d(-2), minutes: 180, rate: 150000, description: "Exhibit scanning", billable: false, invoiced: false },
+  { id: "te9", userId: "u1", caseId: "k1", date: d(-3), minutes: 95, rate: 300000, description: "Meet with client", billable: true, invoiced: false },
+  { id: "te10", userId: "u2", caseId: "k4", date: d(-3), minutes: 60, rate: 250000, description: "USCIS portal upload", billable: true, invoiced: false },
   // Older invoiced entries for reports
-  { id: "te11", userId: "u1", caseId: "k1", date: d(-12), minutes: 240, rate: 300, description: "Discovery round 1", billable: true, invoiced: true },
-  { id: "te12", userId: "u2", caseId: "k2", date: d(-14), minutes: 180, rate: 250, description: "Trust drafting", billable: true, invoiced: true },
-  { id: "te13", userId: "u1", caseId: "k5", date: d(-16), minutes: 300, rate: 350, description: "MSA negotiation session", billable: true, invoiced: true },
+  { id: "te11", userId: "u1", caseId: "k1", date: d(-12), minutes: 240, rate: 300000, description: "Discovery round 1", billable: true, invoiced: true },
+  { id: "te12", userId: "u2", caseId: "k2", date: d(-14), minutes: 180, rate: 250000, description: "Trust drafting", billable: true, invoiced: true },
+  { id: "te13", userId: "u1", caseId: "k5", date: d(-16), minutes: 300, rate: 350000, description: "MSA negotiation session", billable: true, invoiced: true },
 ];
 
 export const seedExpenses: Expense[] = [
-  { id: "x1", caseId: "k1", date: d(-2), description: "Court filing fee — motion", amount: 212, billable: true, invoiced: false, category: "filing" },
-  { id: "x2", caseId: "k4", date: d(-4), description: "USCIS premium processing", amount: 1685, billable: true, invoiced: false, category: "filing" },
-  { id: "x3", caseId: "k1", date: d(-9), description: "Courier — deposition exhibits", amount: 48, billable: true, invoiced: false, category: "copies" },
-  { id: "x4", caseId: "k5", date: d(-11), description: "Expert consult (2h)", amount: 900, billable: true, invoiced: false, category: "expert" },
-  { id: "x5", caseId: "k3", date: d(-15), description: "Mileage — Daley Center", amount: 16, billable: true, invoiced: true, category: "travel" },
+  { id: "x1", caseId: "k1", date: d(-2), description: "Court filing fee — motion", amount: 20000, billable: true, invoiced: false, category: "filing" },
+  { id: "x2", caseId: "k4", date: d(-4), description: "USCIS premium processing", amount: 1500000, billable: true, invoiced: false, category: "filing" },
+  { id: "x3", caseId: "k1", date: d(-9), description: "Courier — deposition exhibits", amount: 45000, billable: true, invoiced: false, category: "copies" },
+  { id: "x4", caseId: "k5", date: d(-11), description: "Expert consult (2h)", amount: 900000, billable: true, invoiced: false, category: "expert" },
+  { id: "x5", caseId: "k3", date: d(-15), description: "Mileage — Daley Center", amount: 35000, billable: true, invoiced: true, category: "travel" },
 ];
 
 export const seedInvoices: Invoice[] = [
@@ -100,9 +100,9 @@ export const seedInvoices: Invoice[] = [
     id: "iv1", number: "INV-1041", clientId: "c1", caseId: "k1",
     issued: d(-20), due: d(10), status: "sent",
     lines: [
-      { id: "l1", description: "Discovery round 1 — attorney time (4.0 hrs)", quantity: 4, rate: 300, kind: "time" },
-      { id: "l2", description: "Records retrieval — paralegal (2.5 hrs)", quantity: 2.5, rate: 150, kind: "time" },
-      { id: "l3", description: "Court filing fee", quantity: 1, rate: 188, kind: "expense" },
+      { id: "l1", description: "Discovery round 1 — attorney time (4.0 hrs)", quantity: 4, rate: 300000, kind: "time" },
+      { id: "l2", description: "Records retrieval — paralegal (2.5 hrs)", quantity: 2.5, rate: 150000, kind: "time" },
+      { id: "l3", description: "Court filing fee", quantity: 1, rate: 20000, kind: "expense" },
     ],
     notes: "Thank you for your business.",
   },
@@ -110,38 +110,38 @@ export const seedInvoices: Invoice[] = [
     id: "iv2", number: "INV-1042", clientId: "c4", caseId: "k5",
     issued: d(-35), due: d(-5), status: "overdue",
     lines: [
-      { id: "l4", description: "MSA negotiation session (5.0 hrs)", quantity: 5, rate: 350, kind: "time" },
+      { id: "l4", description: "MSA negotiation session (5.0 hrs)", quantity: 5, rate: 350000, kind: "time" },
     ],
   },
   {
     id: "iv3", number: "INV-1043", clientId: "c2", caseId: "k2",
     issued: d(-40), due: d(-10), status: "paid",
     lines: [
-      { id: "l5", description: "Trust drafting (3.0 hrs)", quantity: 3, rate: 250, kind: "time" },
+      { id: "l5", description: "Trust drafting (3.0 hrs)", quantity: 3, rate: 250000, kind: "time" },
     ],
   },
   {
     id: "iv4", number: "INV-1044", clientId: "c3", caseId: "k4",
     issued: d(-2), due: d(28), status: "draft",
     lines: [
-      { id: "l6", description: "RFE response drafting (1.6 hrs)", quantity: 1.6, rate: 250, kind: "time" },
+      { id: "l6", description: "RFE response drafting (1.6 hrs)", quantity: 1.6, rate: 250000, kind: "time" },
     ],
   },
 ];
 
 export const seedPayments: Payment[] = [
-  { id: "p1", invoiceId: "iv3", clientId: "c2", date: d(-12), amount: 750, method: "card", status: "deposited", trustAccount: false },
-  { id: "p2", invoiceId: "iv1", clientId: "c1", date: d(-3), amount: 500, method: "echeck", status: "pending", trustAccount: true },
-  { id: "p3", invoiceId: "iv2", clientId: "c4", date: d(-30), amount: 700, method: "card", status: "deposited", trustAccount: false },
+  { id: "p1", invoiceId: "iv3", clientId: "c2", date: d(-12), amount: 750000, method: "card", status: "deposited", trustAccount: false },
+  { id: "p2", invoiceId: "iv1", clientId: "c1", date: d(-3), amount: 500000, method: "echeck", status: "pending", trustAccount: true },
+  { id: "p3", invoiceId: "iv2", clientId: "c4", date: d(-30), amount: 700000, method: "card", status: "deposited", trustAccount: false },
 ];
 
 export const seedTrust: TrustTransaction[] = [
-  { id: "tt1", clientId: "c1", caseId: "k1", date: d(-170), description: "Retainer deposit", amount: 5000, balanceAfter: 5000 },
-  { id: "tt2", clientId: "c1", caseId: "k1", date: d(-20), description: "Fees transferred — INV-1040", amount: -800, balanceAfter: 4200 },
-  { id: "tt3", clientId: "c2", caseId: "k2", date: d(-60), description: "Retainer deposit", amount: 1500, balanceAfter: 1500 },
-  { id: "tt4", clientId: "c3", caseId: "k4", date: d(-14), description: "Filing costs deposit", amount: 800, balanceAfter: 800 },
-  { id: "tt5", clientId: "c4", caseId: "k5", date: d(-230), description: "Retainer deposit", amount: 7500, balanceAfter: 7500 },
-  { id: "tt6", clientId: "c4", caseId: "k5", date: d(-25), description: "Fees transferred — INV-1039", amount: -1400, balanceAfter: 6100 },
+  { id: "tt1", clientId: "c1", caseId: "k1", date: d(-170), description: "Retainer deposit", amount: 20000000, balanceAfter: 20000000 },
+  { id: "tt2", clientId: "c1", caseId: "k1", date: d(-20), description: "Fees transferred — INV-1040", amount: -2500000, balanceAfter: 17500000 },
+  { id: "tt3", clientId: "c2", caseId: "k2", date: d(-60), description: "Retainer deposit", amount: 7500000, balanceAfter: 7500000 },
+  { id: "tt4", clientId: "c3", caseId: "k4", date: d(-14), description: "Filing costs deposit", amount: 2500000, balanceAfter: 2500000 },
+  { id: "tt5", clientId: "c4", caseId: "k5", date: d(-230), description: "Retainer deposit", amount: 27500000, balanceAfter: 27500000 },
+  { id: "tt6", clientId: "c4", caseId: "k5", date: d(-25), description: "Fees transferred — INV-1039", amount: -5000000, balanceAfter: 22500000 },
 ];
 
 export const seedDocuments: DocumentFile[] = [
@@ -183,12 +183,12 @@ export const seedThreads: MessageThread[] = [
 ];
 
 export const seedLeads: Lead[] = [
-  { id: "ld1", name: "Grace Kim", email: "grace.kim@example.com", phone: "(224) 555-0166", source: "website", stage: "converted", practiceArea: "Family Law", value: 4500, createdAt: d(-12), activity: [{ at: dt(-12, "10:00"), text: "Intake form submitted via website" }, { at: dt(-10, "09:30"), text: "Consult held — fee agreement signed" }] },
-  { id: "ld2", name: "Tomás Rivera", email: "t.rivera@example.com", phone: "(312) 555-0187", source: "referral", stage: "consult scheduled", practiceArea: "Personal Injury", value: 12000, createdAt: d(-5), notes: "Referred by Barbara Jones.", activity: [{ at: dt(-5, "13:15"), text: "Called back, consult booked" }] },
-  { id: "ld3", name: "Ashley Monroe", email: "a.monroe@example.com", phone: "(847) 555-0122", source: "ads", stage: "new", practiceArea: "Estate Planning", value: 2000, createdAt: d(-2), activity: [{ at: dt(-2, "16:45"), text: "Landing page form filled" }] },
-  { id: "ld4", name: "Derek Coleman", email: "d.coleman@example.com", phone: "(630) 555-0143", source: "call", stage: "contacted", practiceArea: "Business Law", value: 8000, createdAt: d(-7), activity: [{ at: dt(-7, "11:20"), text: "Inbound call — MSA question" }, { at: dt(-6, "09:00"), text: "Emailed intake packet" }] },
-  { id: "ld5", name: "Nina Petrov", email: "n.petrov@example.com", phone: "(773) 555-0198", source: "website", stage: "fee agreement", practiceArea: "Immigration", value: 3500, createdAt: d(-9), activity: [{ at: dt(-9, "15:00"), text: "Intake form submitted" }, { at: dt(-8, "10:30"), text: "Fee agreement sent for e-signature" }] },
-  { id: "ld6", name: "Owen Gallagher", email: "o.gallagher@example.com", phone: "(312) 555-0110", source: "walk-in", stage: "lost", practiceArea: "Personal Injury", value: 5000, createdAt: d(-20), notes: "Out of state — referred elsewhere.", activity: [{ at: dt(-20, "12:00"), text: "Walk-in consult" }, { at: dt(-19, "09:15"), text: "Referred to Ohio counsel" }] },
+  { id: "ld1", name: "Grace Kim", email: "grace.kim@example.com", phone: "(224) 555-0166", source: "website", stage: "converted", practiceArea: "Family Law", value: 4500000, createdAt: d(-12), activity: [{ at: dt(-12, "10:00"), text: "Intake form submitted via website" }, { at: dt(-10, "09:30"), text: "Consult held — fee agreement signed" }] },
+  { id: "ld2", name: "Tomás Rivera", email: "t.rivera@example.com", phone: "(312) 555-0187", source: "referral", stage: "consult scheduled", practiceArea: "Personal Injury", value: 25000000, createdAt: d(-5), notes: "Referred by Barbara Jones.", activity: [{ at: dt(-5, "13:15"), text: "Called back, consult booked" }] },
+  { id: "ld3", name: "Ashley Monroe", email: "a.monroe@example.com", phone: "(847) 555-0122", source: "ads", stage: "new", practiceArea: "Estate Planning", value: 3500000, createdAt: d(-2), activity: [{ at: dt(-2, "16:45"), text: "Landing page form filled" }] },
+  { id: "ld4", name: "Derek Coleman", email: "d.coleman@example.com", phone: "(630) 555-0143", source: "call", stage: "contacted", practiceArea: "Business Law", value: 15000000, createdAt: d(-7), activity: [{ at: dt(-7, "11:20"), text: "Inbound call — MSA question" }, { at: dt(-6, "09:00"), text: "Emailed intake packet" }] },
+  { id: "ld5", name: "Nina Petrov", email: "n.petrov@example.com", phone: "(773) 555-0198", source: "website", stage: "fee agreement", practiceArea: "Immigration", value: 6000000, createdAt: d(-9), activity: [{ at: dt(-9, "15:00"), text: "Intake form submitted" }, { at: dt(-8, "10:30"), text: "Fee agreement sent for e-signature" }] },
+  { id: "ld6", name: "Owen Gallagher", email: "o.gallagher@example.com", phone: "(312) 555-0110", source: "walk-in", stage: "lost", practiceArea: "Personal Injury", value: 10000000, createdAt: d(-20), notes: "Out of state — referred elsewhere.", activity: [{ at: dt(-20, "12:00"), text: "Walk-in consult" }, { at: dt(-19, "09:15"), text: "Referred to Ohio counsel" }] },
 ];
 
 export const seedReports: ReportDef[] = [

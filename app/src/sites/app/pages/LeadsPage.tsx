@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api } from "@/lib/data";
-import { useAsync, money, fmtDate } from "@/lib/hooks";
+import { useAsync, fmtDate } from "@/lib/hooks";
+import { formatINR0, rupeesToPaise } from "@/lib/money";
 import { Card, Modal, NewButton, PageHeader, Field, inputCls, Table, StatusPill } from "../ui";
 import type { Lead, LeadStage } from "@/lib/data";
 
@@ -16,11 +17,11 @@ const STAGES: { key: LeadStage; label: string }[] = [
 export default function LeadsPage() {
   const { data: leads, refetch } = useAsync(() => api.listLeads(), []);
   const [creating, setCreating] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", phone: "", source: "website", practiceArea: "Family Law", value: "2500" });
+  const [form, setForm] = useState({ name: "", email: "", phone: "", source: "website", practiceArea: "Family Law", value: "25000" });
   const [drag, setDrag] = useState<string | null>(null);
 
   const create = async () => {
-    await api.createLead({ ...form, value: Number(form.value) || 0, source: form.source as Lead["source"] });
+    await api.createLead({ ...form, value: rupeesToPaise(Number(form.value)) || 0, source: form.source as Lead["source"] });
     setCreating(false);
     refetch();
   };
@@ -41,7 +42,7 @@ export default function LeadsPage() {
     <div data-testid="leads-page" className="px-8 pb-12">
       <PageHeader
         title="Lead pipeline"
-        subtitle={`${money(pipelineValue)} in open pipeline · ${(leads ?? []).length} leads`}
+        subtitle={`${formatINR0(pipelineValue)} in open pipeline · ${(leads ?? []).length} leads`}
         actions={<NewButton testid="lead-new" label="Add lead" onClick={() => setCreating(true)} />}
       />
       <div className="flex gap-4 overflow-x-auto pb-2">
@@ -70,7 +71,7 @@ export default function LeadsPage() {
                       <p className="text-[13.5px] font-bold text-neutral-900">{l.name}</p>
                       <p className="mt-0.5 text-[12px] text-neutral-500">{l.practiceArea} · {l.source}</p>
                       <div className="mt-2 flex items-center justify-between">
-                        <span className="text-[13px] font-extrabold text-[#4c4cb8]">{money(l.value)}</span>
+                        <span className="text-[13px] font-extrabold text-[#4c4cb8]">{formatINR0(l.value)}</span>
                         <span className="text-[11px] text-neutral-400">{fmtDate(l.createdAt)}</span>
                       </div>
                       {stage.key !== "converted" && stage.key !== "lost" && (
@@ -111,7 +112,7 @@ export default function LeadsPage() {
                     {STAGES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
                   </select>
                 </td>
-                <td className="px-6 py-3 font-semibold">{money(l.value)}</td>
+                <td className="px-6 py-3 font-semibold">{formatINR0(l.value)}</td>
                 <td className="px-6 py-3 text-neutral-500">{fmtDate(l.createdAt)}</td>
               </tr>
             ))}
@@ -137,7 +138,7 @@ export default function LeadsPage() {
                 {["Family Law", "Personal Injury", "Estate Planning", "Business Law", "Immigration"].map((p) => <option key={p}>{p}</option>)}
               </select>
             </Field>
-            <Field label="Est. value ($)"><input type="number" className={inputCls} value={form.value} onChange={(e) => setForm({ ...form, value: e.target.value })} /></Field>
+            <Field label="Est. value (₹)"><input type="number" className={inputCls} value={form.value} onChange={(e) => setForm({ ...form, value: e.target.value })} /></Field>
           </div>
           <button data-testid="lead-save" onClick={create} className="w-full rounded-full bg-lawleit py-2.5 text-[14px] font-bold text-white hover:bg-lawleit-dark">Save lead</button>
         </div>

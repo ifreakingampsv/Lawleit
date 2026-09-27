@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api } from "@/lib/data";
-import { useAsync, money, fmtDate } from "@/lib/hooks";
+import { useAsync, fmtDate } from "@/lib/hooks";
+import { formatINR, paiseToRupees, rupeesToPaise } from "@/lib/money";
 import { Card, Modal, NewButton, PageHeader, Field, inputCls, StatusPill, Table } from "../ui";
 import type { InvoiceLine } from "@/lib/data";
 
@@ -14,7 +15,7 @@ export default function InvoicesPage() {
   const [open, setOpen] = useState<string | null>(null);
   const [form, setForm] = useState({ clientId: "", caseId: "", notes: "" });
   const [lines, setLines] = useState<InvoiceLine[]>([
-    { id: "l1", description: "Professional services", quantity: 1, rate: 500, kind: "flat" },
+    { id: "l1", description: "Professional services", quantity: 1, rate: 500000, kind: "flat" },
   ]);
 
   const create = async () => {
@@ -47,7 +48,7 @@ export default function InvoicesPage() {
                 <td className="px-6 py-3.5">{fmtDate(iv.issued)}</td>
                 <td className="px-6 py-3.5">{fmtDate(iv.due)}</td>
                 <td className="px-6 py-3.5"><StatusPill status={iv.status} /></td>
-                <td className="px-6 py-3.5 font-bold">{money(total(iv))}</td>
+                <td className="px-6 py-3.5 font-bold">{formatINR(total(iv))}</td>
                 <td className="px-6 py-3.5 text-right">
                   {iv.status === "draft" && (
                     <button data-testid="invoice-send" onClick={async () => { await api.updateInvoice(iv.id, { status: "sent" }); refetch(); }}
@@ -88,14 +89,14 @@ export default function InvoicesPage() {
                     <tr key={l.id}>
                       <td className="py-2.5">{l.description}</td>
                       <td className="py-2.5 text-right">{l.quantity}</td>
-                      <td className="py-2.5 text-right">{money(l.rate)}</td>
-                      <td className="py-2.5 text-right font-semibold">{money(lineTotal(l))}</td>
+                      <td className="py-2.5 text-right">{formatINR(l.rate)}</td>
+                      <td className="py-2.5 text-right font-semibold">{formatINR(lineTotal(l))}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
               <div className="mt-4 flex justify-between border-t-2 border-neutral-800 pt-3 text-[15px] font-extrabold">
-                <span>Total</span><span>{money(total(selected))}</span>
+                <span>Total</span><span>{formatINR(total(selected))}</span>
               </div>
             </div>
             <div className="mt-4 flex gap-2">
@@ -137,14 +138,14 @@ export default function InvoicesPage() {
                   onChange={(e) => setLines(lines.map((x, j) => (j === i ? { ...x, description: e.target.value } : x)))} />
                 <input type="number" step="0.1" className={inputCls} value={l.quantity}
                   onChange={(e) => setLines(lines.map((x, j) => (j === i ? { ...x, quantity: Number(e.target.value) } : x)))} />
-                <input type="number" className={inputCls} value={l.rate}
-                  onChange={(e) => setLines(lines.map((x, j) => (j === i ? { ...x, rate: Number(e.target.value) } : x)))} />
+                <input type="number" className={inputCls} value={paiseToRupees(l.rate)}
+                  onChange={(e) => setLines(lines.map((x, j) => (j === i ? { ...x, rate: rupeesToPaise(Number(e.target.value)) } : x)))} />
                 <button aria-label="Remove line" onClick={() => setLines(lines.filter((_, j) => j !== i))} className="text-neutral-400 hover:text-red-500">✕</button>
               </div>
             ))}
             <button data-testid="invoice-add-line" onClick={() => setLines([...lines, { id: `l${Date.now()}`, description: "", quantity: 1, rate: 0, kind: "flat" }])}
               className="mt-1 text-[13px] font-bold text-lawleit hover:underline">+ Add line</button>
-            <p className="mt-3 text-right text-[14px] font-bold">Total: {money(lines.reduce((s, l) => s + lineTotal(l), 0))}</p>
+            <p className="mt-3 text-right text-[14px] font-bold">Total: {formatINR(lines.reduce((s, l) => s + lineTotal(l), 0))}</p>
           </div>
           <button data-testid="invoice-save" onClick={create} className="w-full rounded-full bg-lawleit py-2.5 text-[14px] font-bold text-white hover:bg-lawleit-dark">Create invoice</button>
         </div>

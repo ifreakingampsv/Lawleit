@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api } from "@/lib/data";
-import { useAsync, money } from "@/lib/hooks";
+import { useAsync } from "@/lib/hooks";
+import { formatINR0 } from "@/lib/money";
 import { Card, CardTitle, Field, inputCls, Avatar } from "../ui";
 
 export default function SettingsPage() {
@@ -60,7 +61,7 @@ export default function SettingsPage() {
                     </span>
                   </td>
                   <td className="py-3 capitalize">{u.role}</td>
-                  <td className="py-3 text-right font-semibold">{money(u.hourlyRate)}/hr</td>
+                  <td className="py-3 text-right font-semibold">{formatINR0(u.hourlyRate)}/hr</td>
                 </tr>
               ))}
             </tbody>

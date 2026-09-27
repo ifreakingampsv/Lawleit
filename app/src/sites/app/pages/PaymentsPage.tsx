@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api } from "@/lib/data";
-import { useAsync, money, fmtDate } from "@/lib/hooks";
+import { useAsync, fmtDate } from "@/lib/hooks";
+import { formatINR, formatINR0, paiseToRupees, rupeesToPaise } from "@/lib/money";
 import { Card, Modal, NewButton, PageHeader, Field, inputCls, StatusPill, Table } from "../ui";
 
 export default function PaymentsPage() {
@@ -15,7 +16,7 @@ export default function PaymentsPage() {
     await api.recordPayment({
       invoiceId: form.invoiceId,
       clientId: iv?.clientId,
-      amount: Number(form.amount) || 0,
+      amount: rupeesToPaise(Number(form.amount)) || 0,
       method: form.method as "card" | "echeck" | "wallet",
       trustAccount: form.trustAccount,
     });
@@ -31,7 +32,7 @@ export default function PaymentsPage() {
     <div data-testid="payments-page" className="px-8 pb-12">
       <PageHeader
         title="Payments"
-        subtitle={`${money(totalThisMonth)} collected in the last 30 days — via LawleitPay`}
+        subtitle={`${formatINR0(totalThisMonth)} collected in the last 30 days — via LawleitPay`}
         actions={<NewButton testid="payment-new" label="Record payment" onClick={() => setCreating(true)} />}
       />
       <Card>
@@ -47,7 +48,7 @@ export default function PaymentsPage() {
                 <td className="px-6 py-3.5 capitalize">{p.method}</td>
                 <td className="px-6 py-3.5">{p.trustAccount ? "Yes" : "No"}</td>
                 <td className="px-6 py-3.5"><StatusPill status={p.status} /></td>
-                <td className="px-6 py-3.5 text-right font-bold">{money(p.amount)}</td>
+                <td className="px-6 py-3.5 text-right font-bold">{formatINR(p.amount)}</td>
               </tr>
             );
           })}
@@ -59,14 +60,14 @@ export default function PaymentsPage() {
           <Field label="Invoice">
             <select data-testid="payment-invoice" className={inputCls} value={form.invoiceId} onChange={(e) => {
               const iv = (invoices ?? []).find((i) => i.id === e.target.value);
-              setForm({ ...form, invoiceId: e.target.value, amount: iv ? String(iv.lines.reduce((s, l) => s + l.quantity * l.rate, 0)) : "" });
+              setForm({ ...form, invoiceId: e.target.value, amount: iv ? String(paiseToRupees(iv.lines.reduce((s, l) => s + l.quantity * l.rate, 0))) : "" });
             }}>
               <option value="">Select invoice…</option>
               {(invoices ?? []).filter((i) => i.status !== "paid").map((i) => <option key={i.id} value={i.id}>{i.number}</option>)}
             </select>
           </Field>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Amount ($)"><input data-testid="payment-amount" type="number" className={inputCls} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></Field>
+            <Field label="Amount (₹)"><input data-testid="payment-amount" type="number" className={inputCls} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></Field>
             <Field label="Method">
               <select data-testid="payment-method" className={inputCls} value={form.method} onChange={(e) => setForm({ ...form, method: e.target.value })}>
                 {["card", "echeck", "wallet"].map((m) => <option key={m} value={m}>{m}</option>)}

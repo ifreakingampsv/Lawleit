@@ -3,13 +3,14 @@ import { Check, ChevronDown } from "lucide-react";
 import SiteHeader from "./SiteHeader";
 import SiteFooter from "./SiteFooter";
 import { cn } from "@/lib/utils";
+import { formatINR0, rupeesToPaise } from "@/lib/money";
 
 /* ---- S18/S19: hero + plan cards + [D5] billing toggle ---- */
 
 const PLANS = [
   {
     name: "Lawleit Basic", accent: "", tagline: "Organize the essentials. Get paid faster.",
-    saveAnnual: "Save $120/year", annual: 50, monthly: 60,
+    saveAnnual: "Save ₹2,400/year", annual: 999, monthly: 1199,
     cta: "outline",
     features: [
       "Case and Contact Management",
@@ -22,7 +23,7 @@ const PLANS = [
   },
   {
     name: "Lawleit Pro", accent: "text-lawleit", tagline: "Automate routine work. Scale the firm.",
-    saveAnnual: "Save $240/year", annual: 100, monthly: 120, popular: true,
+    saveAnnual: "Save ₹4,800/year", annual: 1999, monthly: 2399, popular: true,
     cta: "solid",
     features: [
       "Everything in Basic",
@@ -37,7 +38,7 @@ const PLANS = [
   },
   {
     name: "Lawleit Advanced", accent: "", tagline: "Deeper intelligence. Sharper insights.",
-    saveAnnual: "Save $240/year", annual: 130, monthly: 150,
+    saveAnnual: "Save ₹6,000/year", annual: 2499, monthly: 2999,
     cta: "dark",
     features: [
       "Everything in Lawleit Pro",
@@ -75,13 +76,13 @@ function PlanCard({ plan, annual }: { plan: (typeof PLANS)[number]; annual: bool
       </div>
       <div className="mt-3 flex items-baseline gap-2.5">
         <span data-testid={`price-${plan.name.split(" ")[1].toLowerCase()}`} className="text-5xl font-extrabold tracking-tight text-[#28344a]">
-          ${annual ? plan.annual : plan.monthly}
+          {formatINR0(rupeesToPaise(annual ? plan.annual : plan.monthly))}
         </span>
         <span className="text-lg font-semibold text-neutral-400 line-through">
-          ${annual ? plan.monthly : plan.annual}
+          {formatINR0(rupeesToPaise(annual ? plan.monthly : plan.annual))}
         </span>
       </div>
-      <p className="mt-1 text-[13px] text-neutral-500">USD/user/month</p>
+      <p className="mt-1 text-[13px] text-neutral-500">per user/month</p>
       <button
         className={cn(
           "mt-5 w-full rounded-full py-3 text-[15px] font-bold transition",
@@ -227,7 +228,7 @@ const STORIES = [
   [
     { quote: "Billing used to take our bookkeeper a full week each month. With Lawleit batch billing it's an afternoon, and collections are faster too.", name: "Dana Whitmore", firm: "Whitmore & Associates" },
     { quote: "The intake forms feed straight into our cases — no more retyping client details, no more lost checkboxes.", name: "Luis Ferrer", firm: "Ferrer Legal Group" },
-    { quote: "Trust accounting finally feels safe. Every dollar is tagged to a matter and reconciles in minutes.", name: "Hannah Cole", firm: "Cole & Partners" },
+    { quote: "Trust accounting finally feels safe. Every rupee is tagged to a matter and reconciles in minutes.", name: "Hannah Cole", firm: "Cole & Partners" },
   ],
 ];
 
@@ -280,7 +281,7 @@ export function Stories() {
 const FAQS = [
   { q: "How many people can use Lawleit?", a: "While there is no limit to how many firm clients can access the Lawleit client portal, the number of firm employees who can use Lawleit will depend on the number of active firm users you have added to your account." },
   { q: "How safe and secure is my work?", a: "Lawleit safeguards your data with bank-grade encryption in transit and at rest, role-based access controls, and independent third-party audits of our infrastructure." },
-  { q: "How much does Lawleit cost?", a: "Plans start at $50 per user/month billed annually. Every plan includes a 10-day free trial with full access — no credit card required." },
+  { q: "How much does Lawleit cost?", a: "Plans start at ₹999 per user/month billed annually. Every plan includes a 10-day free trial with full access — no credit card required." },
   { q: "What if I want to cancel my account?", a: "You can cancel anytime from firm settings. Your data remains exportable for 90 days after cancellation." },
 ];
 
@@ -335,7 +336,7 @@ export function Enhancements() {
         <div className="pr-12">
           <h3 className="text-[28px] font-bold text-[#28344a]">LawleitPay Payments</h3>
           <p className="mt-1 text-[16px] text-neutral-600">Faster payments, more control</p>
-          <p className="mt-5 text-5xl font-extrabold text-[#28344a]">$0</p>
+          <p className="mt-5 text-5xl font-extrabold text-[#28344a]">₹0</p>
           <ul className="mt-6 space-y-3 text-left">
             <CheckRow>Simple, secure online payments making it easy for your clients to pay</CheckRow>
             <CheckRow>All your billing, payments, and cases fully integrated in one platform</CheckRow>
@@ -345,7 +346,7 @@ export function Enhancements() {
         <div className="pl-12">
           <h3 className="text-[28px] font-bold text-[#28344a]">Lawleit Accounting</h3>
           <p className="mt-1 text-[16px] text-neutral-600">Full financial clarity, built right in</p>
-          <p className="mt-5 text-5xl font-extrabold text-[#28344a]">$39</p>
+          <p className="mt-5 text-5xl font-extrabold text-[#28344a]">₹1,499</p>
           <ul className="mt-6 space-y-3 text-left">
             <CheckRow>Compliance with three way trust reconciliations</CheckRow>
             <CheckRow>Fewer tools and a holistic view of firm financials</CheckRow>

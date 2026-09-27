@@ -114,30 +114,30 @@ describe("billing — server-side responsibilities", () => {
     const iv = await api.createInvoice({
       clientId: contact.id,
       lines: [
-        { id: "l1", description: "Consult", quantity: 2, rate: 150, kind: "time" },
-        { id: "l2", description: "Copies", quantity: 1, rate: 100, kind: "flat" },
+        { id: "l1", description: "Consult", quantity: 2, rate: 15000, kind: "time" },
+        { id: "l2", description: "Copies", quantity: 1, rate: 10000, kind: "flat" },
       ],
     });
     expect(iv.number).toMatch(/^INV-\d{4}$/);
     await api.updateInvoice(iv.id, { status: "sent" });
 
-    await api.recordPayment({ invoiceId: iv.id, amount: 250, method: "card" });
+    await api.recordPayment({ invoiceId: iv.id, amount: 25000, method: "card" });
     expect((await api.getInvoice(iv.id))?.status).toBe("sent");
 
-    await api.recordPayment({ invoiceId: iv.id, amount: 150, method: "echeck" });
+    await api.recordPayment({ invoiceId: iv.id, amount: 15000, method: "echeck" });
     expect((await api.getInvoice(iv.id))?.status).toBe("paid");
   });
 
   it("trust payments append ledger entries with running balanceAfter", async () => {
     const contact = await api.createContact({ name: "Contract Trust Client" });
-    await api.recordPayment({ invoiceId: "", clientId: contact.id, amount: 500, trustAccount: true });
-    await api.recordPayment({ invoiceId: "", clientId: contact.id, amount: 250, trustAccount: true });
+    await api.recordPayment({ invoiceId: "", clientId: contact.id, amount: 50000, trustAccount: true });
+    await api.recordPayment({ invoiceId: "", clientId: contact.id, amount: 25000, trustAccount: true });
 
     const ledger = await api.listTrustTransactions();
     const mine = ledger.filter((t) => t.clientId === contact.id);
     expect(mine).toHaveLength(2);
-    expect(mine[0].balanceAfter).toBe(500);
-    expect(mine[1].balanceAfter).toBe(750);
+    expect(mine[0].balanceAfter).toBe(50000);
+    expect(mine[1].balanceAfter).toBe(75000);
   });
 });
 
