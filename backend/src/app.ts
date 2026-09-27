@@ -1,0 +1,56 @@
+import Fastify, { type FastifyError, type FastifyInstance } from "fastify";
+import cors from "@fastify/cors";
+import { ZodError } from "zod";
+import type { AppConfig } from "./config.js";
+import { apiRoutes } from "./routes/index.js";
+import { healthRoutes } from "./routes/health.js";
+
+/**
+ * buildApp — the deployable API without .listen(); tests drive it via .inject().
+ *
+ * Error envelope (docs/API_CONTRACT.md + app/src/lib/data/httpAdapter.ts):
+ * every failure is JSON `{ error: <message> }`. The adapter surfaces that
+ * string verbatim to the UI, so no other field and no stack internals may
+ * appear in the body.
+ */
+export async function buildApp(config: AppConfig): Promise<FastifyInstance> {
+  const app = Fastify({ logger: true });
+
+  // Browser origins must be on the allow-list; requests without an Origin
+  // header (curl, the vite proxy, server-to-server) are not CORS-governed.
+  await app.register(cors, {
+    origin: (origin, cb) => {
+      if (origin === undefined || config.corsOrigins.includes(origin)) return cb(null, true);
+      cb(null, false);
+    },
+    credentials: true,
+  });
+
+  app.setErrorHandler((rawError, request, reply) => {
+    // Route handlers throw ZodError on invalid client input (ticket 07+).
+    if (rawError instanceof ZodError) {
+      reply.status(400).send({ error: rawError.issues[0]?.message ?? "Invalid request body" });
+      return;
+    }
+    const error = rawError as FastifyError;
+    const statusCode = error.statusCode ?? 500;
+    if (statusCode >= 500) {
+      request.log.error(error);
+      reply.status(statusCode).send({ error: "Internal error" });
+      return;
+    }
+    reply.status(statusCode).send({ error: error.message });
+  });
+
+  app.setNotFoundHandler((request, reply) => {
+    const path = request.url.split("?")[0] ?? request.url;
+    reply.status(404).send({ error: `No route: ${request.method} ${path}` });
+  });
+
+  await app.register(apiRoutes, { prefix: "/api/v1" });
+  // The reference backend also serves /health prefixless; the smoke suite and
+  // the vite proxy rely on both forms.
+  await app.register(healthRoutes);
+
+  return app;
+}
