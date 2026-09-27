@@ -121,6 +121,10 @@ class HttpAdapter implements LawleitApi {
     }
   }
 
+  async resetDemoData(): Promise<Session> {
+    throw new Error("Reset demo data is a Demo Version action — production data is never wiped from the client");
+  }
+
   // ---- firm & users ----
   updateFirm(patch: Partial<Firm>) { return http<Firm>("PATCH", "/firm", { body: patch }); }
   listUsers() { return http<User[]>("GET", "/users"); }

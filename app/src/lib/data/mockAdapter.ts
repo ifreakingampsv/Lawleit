@@ -144,6 +144,19 @@ class MockAdapter implements LawleitApi {
     return this.session;
   }
 
+  /**
+   * The "Reset demo data" action: discard every local edit, re-seed the
+   * pristine Demo Firm, and re-establish the session against the fresh DB so
+   * the visitor stays signed in (ADR 0001).
+   */
+  async resetDemoData(): Promise<Session> {
+    this.db = freshDb();
+    this.save();
+    this.session = { user: this.db.users[0], firm: this.db.firm, users: this.db.users };
+    sessionStorage.setItem(SS_KEY, JSON.stringify(this.session));
+    return this.session;
+  }
+
   // ---- firm & users ----
   async updateFirm(patch: Partial<Firm>): Promise<Firm> {
     this.withSession();

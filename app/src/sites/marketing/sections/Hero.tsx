@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router";
 import { AnimatePresence, motion } from "framer-motion";
-import EmailCapture from "./EmailCapture";
+import { startDemoSession } from "@/lib/data/demo";
 import { CheckBadge } from "@/lib/brand";
 import { formatINR, formatINR0 } from "@/lib/money";
 
@@ -231,11 +232,18 @@ const STATES = [VisualBilling, VisualDashboard, VisualLeads, VisualCalendar];
 /** [D1] time-driven autoplay: crossfade between 4 product states every ~3s */
 export default function Hero() {
   const [idx, setIdx] = useState(0);
+  const [entering, setEntering] = useState(false);
+  const navigate = useNavigate();
   useEffect(() => {
     const t = window.setInterval(() => setIdx((i) => (i + 1) % STATES.length), 3000);
     return () => window.clearInterval(t);
   }, []);
   const Visual = STATES[idx] ?? VisualBilling;
+  const enterDemo = async () => {
+    setEntering(true);
+    await startDemoSession();
+    navigate("/app");
+  };
   return (
     <section data-testid="hero" className="hero-grid-bg">
       <div className="mx-auto grid max-w-[1280px] grid-cols-[minmax(0,600px)_1fr] items-center gap-10 px-8 pb-24 pt-20">
@@ -255,7 +263,15 @@ export default function Hero() {
             ))}
           </ul>
           <div className="mt-10">
-            <EmailCapture />
+            <button
+              data-testid="hero-explore-demo"
+              onClick={enterDemo}
+              disabled={entering}
+              className="h-14 rounded-xl bg-lawleit px-9 text-[15px] font-bold text-white transition hover:bg-lawleit-dark disabled:opacity-60"
+            >
+              {entering ? "Opening the demo…" : "Explore demo"}
+            </button>
+            <p className="mt-2.5 text-[13px] text-neutral-600">No signup. No credit card. Your edits stay in your browser.</p>
           </div>
         </div>
         <div data-testid="hero-visual" className="relative h-[480px]">

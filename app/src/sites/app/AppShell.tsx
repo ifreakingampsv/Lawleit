@@ -2,13 +2,15 @@ import { useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router";
 import {
   Bell, ChevronDown, ChevronRight, Clock, FileText, Folder,
-  Gauge, Home, IndianRupee, LayoutGrid, LogOut, Menu, MessagesSquare, Play, Plus, Search,
+  Gauge, Home, IndianRupee, LayoutGrid, LogOut, Menu, MessagesSquare, Play, Plus, RotateCcw, Search,
   Settings, Square, Users,
 } from "lucide-react";
 import { GemMark, Logo } from "@/lib/brand";
-import { api } from "@/lib/data";
+import { api, apiMode } from "@/lib/data";
+import { startDemoSession } from "@/lib/data/demo";
 import { useAsync } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
+import { resetDemoData } from "./demoReset";
 import type { TimeEntry, User } from "@/lib/data";
 import type { TimerState } from "./context";
 
@@ -60,17 +62,25 @@ const MODULES = [
 ];
 
 export default function AppShell() {
-  const { data: session, loading: sessionLoading } = useAsync(() => api.getSession(), []);
+  const { data: session, loading: sessionLoading, refetch: refetchSession } = useAsync(() => api.getSession(), []);
   const navigate = useNavigate();
   const { state: timer, update: setTimer, elapsed } = useTimer();
   const { data: notifications, refetch: refetchNotifs } = useAsync(() => api.listNotifications(), []);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
 
   useEffect(() => {
-    if (!sessionLoading && !session) navigate("/login");
-  }, [sessionLoading, session, navigate]);
+    if (sessionLoading || session) return;
+    if (apiMode === "mock") {
+      // Demo Version: deep links never hit a login wall — the local session
+      // establishes itself (ADR 0001). Production keeps the auth gate.
+      startDemoSession().then(refetchSession);
+    } else {
+      navigate("/login");
+    }
+  }, [sessionLoading, session, navigate, refetchSession]);
 
   const unread = (notifications ?? []).filter((n) => !n.read).length;
 
@@ -197,11 +207,46 @@ export default function AppShell() {
             >
               <Plus className="h-4.5 w-4.5" />
             </button>
-            <button aria-label="Account" className="ml-2 flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-neutral-100">
+            {apiMode === "mock" && (
+              <span data-testid="demo-badge" title="Demo Version — your edits stay in this browser" className="mr-1 rounded-full bg-lawleit/10 px-2.5 py-1 text-[11px] font-bold text-lawleit">
+                Demo
+              </span>
+            )}
+            <button
+              data-testid="account-button"
+              aria-label="Account"
+              onClick={() => setAccountOpen((o) => !o)}
+              className="ml-2 flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-neutral-100"
+            >
               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-lawleit text-[12px] font-bold text-white">
                 {(session?.user.name ?? "AL").split(" ").map((p) => p[0]).slice(0, 2).join("")}
               </span>
             </button>
+            {accountOpen && (
+              <div data-testid="account-menu" className="absolute right-4 top-12 z-50 w-64 rounded-xl border border-neutral-200 bg-white p-2 shadow-2xl">
+                <div className="px-3 py-2">
+                  <p className="text-[13px] font-bold text-neutral-800">{session?.user.name}</p>
+                  <p className="truncate text-[11px] text-neutral-400">{session?.user.email}</p>
+                </div>
+                <div className="my-1 h-px bg-neutral-100" />
+                {apiMode === "mock" && (
+                  <button
+                    data-testid="reset-demo"
+                    onClick={() => {
+                      setAccountOpen(false);
+                      if (!window.confirm("Reset demo data? This wipes every change you made in this browser and restores the seeded Demo Firm.")) return;
+                      void resetDemoData();
+                    }}
+                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[13px] text-neutral-800 hover:bg-neutral-50"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5 text-neutral-400" /> Reset demo data
+                  </button>
+                )}
+                <button onClick={logout} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[13px] text-neutral-800 hover:bg-neutral-50">
+                  <LogOut className="h-3.5 w-3.5 text-neutral-400" /> Log out
+                </button>
+              </div>
+            )}
           </div>
         </header>
 

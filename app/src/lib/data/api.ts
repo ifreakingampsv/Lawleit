@@ -21,6 +21,12 @@ export interface LawleitApi {
   }): Promise<Session>;
   logout(): Promise<void>;
   getSession(): Promise<Session | null>;
+  /**
+   * Demo Version only: wipe the persisted local DB and re-seed the pristine
+   * Demo Firm, returning a fresh session (ADR 0001). Production
+   * implementations reject — real firm data is never wiped from the client.
+   */
+  resetDemoData(): Promise<Session>;
 
   // firm & users
   updateFirm(patch: Partial<Firm>): Promise<Firm>;

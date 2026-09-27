@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { api } from "@/lib/data";
+import { api, apiMode } from "@/lib/data";
 import { useAsync } from "@/lib/hooks";
 import { formatINR0 } from "@/lib/money";
+import { resetDemoData } from "../demoReset";
 import { Card, CardTitle, Field, inputCls, Avatar } from "../ui";
 
 export default function SettingsPage() {
@@ -87,7 +88,38 @@ export default function SettingsPage() {
             </p>
           </div>
         </Card>
+
+        {apiMode === "mock" && <DemoDataCard />}
       </div>
     </div>
+  );
+}
+
+/** Demo Version housekeeping (ADR 0001): restore the pristine seeded firm. */
+function DemoDataCard() {
+  const [confirming, setConfirming] = useState(false);
+  return (
+    <Card className="p-6" testid="demo-data-card">
+      <CardTitle>Demo data</CardTitle>
+      <div>
+        <p className="text-[13px] leading-relaxed text-neutral-500">
+          You are exploring the Demo Version. Everything you change is stored only in
+          this browser; resetting brings back the seeded Demo Firm exactly as it shipped.
+        </p>
+        {confirming ? (
+          <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
+            <p className="text-[13px] font-semibold text-red-700">Wipe all local edits and restore the seeded firm?</p>
+            <div className="ml-auto flex items-center gap-2">
+              <button data-testid="reset-demo-confirm" onClick={() => void resetDemoData()} className="rounded-full bg-red-600 px-5 py-2 text-[13px] font-bold text-white hover:bg-red-700">Reset now</button>
+              <button data-testid="reset-demo-cancel" onClick={() => setConfirming(false)} className="rounded-full border border-neutral-300 bg-white px-5 py-2 text-[13px] font-semibold text-neutral-700 hover:bg-neutral-50">Cancel</button>
+            </div>
+          </div>
+        ) : (
+          <button data-testid="reset-demo" onClick={() => setConfirming(true)} className="mt-4 rounded-full border border-neutral-300 px-5 py-2 text-[13px] font-bold text-neutral-800 hover:bg-neutral-50">
+            Reset demo data
+          </button>
+        )}
+      </div>
+    </Card>
   );
 }
