@@ -31,7 +31,7 @@ describe.skipIf(!process.env.DATABASE_URL)("cases against Postgres", () => {
 
   afterEach(async () => {
     await handle.sql.unsafe(
-      "truncate table case_number_counters, cases, contacts, password_reset_tokens, sessions, users, firms cascade",
+      "truncate table case_number_counters, cases, contacts, events, tasks, password_reset_tokens, sessions, users, firms cascade",
     );
   });
 

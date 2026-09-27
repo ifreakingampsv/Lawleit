@@ -26,7 +26,9 @@ describe.skipIf(!process.env.DATABASE_URL)("auth repositories against Postgres",
 
   afterEach(async () => {
     await handle.sql.unsafe(
-      "truncate table password_reset_tokens, sessions, users, firms cascade",
+      // events/tasks reference firms/cases (ticket 11) — cascade would take
+      // them anyway; naming them keeps the wipe explicit.
+      "truncate table cases, case_number_counters, contacts, events, tasks, password_reset_tokens, sessions, users, firms cascade",
     );
   });
 

@@ -18,6 +18,7 @@ import { sql } from "drizzle-orm";
  * Ticket 07 tables: firms, users, sessions, password_reset_tokens.
  * Ticket 09 table: contacts.
  * Ticket 10 tables: cases, case_number_counters.
+ * Ticket 11 tables: events, tasks.
  *
  * Conventions (drizzle/README.md): snake_case names, uuid primary keys with
  * gen_random_uuid() defaults, firm_id uuid not null + index on every tenant
@@ -224,6 +225,97 @@ export const caseNumberCounters = pgTable(
   (table) => [primaryKey({ columns: [table.firmId, table.year] })],
 );
 
+/**
+ * Calendar events (ticket 11) — the firm's calendar. Column set mirrors the
+ * contract's CalendarEvent (app/src/lib/data/types.ts) 1:1 with one deliberate
+ * extra: `source` (ticket 11's V2 seam — court cause-list feeds in V2 will
+ * stamp their own value; every V1 event is 'manual', the column default). The
+ * contract's CalendarEvent has no source field, so the API mapper whitelists
+ * it out — responses stay byte-shape compatible with the mock adapter.
+ *
+ * Datetime handling (the contract is the authority): the contract's calendar
+ * surface deals in ISO calendar days, not instants — `date` is YYYY-MM-DD and
+ * the mock/reference filter lists with day-string comparison
+ * (`e.date >= from && e.date <= to`) — so `date` is a plain `date
+ * mode:string` column (same as the cases dates). `start`/`end` are the
+ * contract's "HH:MM" time-of-day strings verbatim: a `time` column would read
+ * back "11:00:00" and break the byte-shape parity, so they are text, shape-
+ * checked by the service. Only the bookkeeping stamps (created_at,
+ * updated_at, deleted_at) are timestamptz. `case_id` is a nullable FK to
+ * cases (the model allows firm-wide events; soft deletes keep the referenced
+ * row alive, so no ON DELETE action) and indexed — the case detail page
+ * client-filters events by it. `attendee_ids` is a uuid[] soft link with no
+ * existence rule (the contacts.case_ids pattern). The type vocabulary
+ * (meeting/court/deadline/personal/task) lives as text, enforced in the
+ * service like the cases status/stage vocabularies.
+ */
+export const events = pgTable(
+  "events",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    firmId: uuid("firm_id")
+      .notNull()
+      .references(() => firms.id),
+    title: text("title").notNull(),
+    date: date("date", { mode: "string" }).notNull(),
+    start: text("start").notNull(),
+    end: text("end").notNull(),
+    allDay: boolean("all_day"),
+    location: text("location"),
+    caseId: uuid("case_id").references(() => cases.id),
+    attendeeIds: uuid("attendee_ids").array().notNull().default(sql`'{}'::uuid[]`),
+    type: text("type").notNull().default("meeting"),
+    color: text("color").notNull().default("#4B4ACF"),
+    reminders: text("reminders").array(),
+    /** V2 seam: 'manual' today; a court cause-list feed stamps its own value later. */
+    source: text("source").notNull().default("manual"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("events_firm_id_idx").on(table.firmId),
+    index("events_case_id_idx").on(table.caseId),
+  ],
+);
+
+/**
+ * Tasks (ticket 11) — the firm's to-do list. Column set mirrors the contract's
+ * Task (types.ts) 1:1: `due_date` is an ISO calendar day (`date mode:string` —
+ * the mock/reference default it to `today()`'s day string and the UI compares
+ * day strings), priority/status live as text with the contract's vocabularies
+ * enforced in the service. Completion is a plain status patch — the contract
+ * defines no completedAt field and the reference's Object.assign enforces no
+ * transition table. `case_id` is a nullable FK to cases, indexed (the case
+ * detail page client-filters by it); `assignee_id` has no FK on purpose — the
+ * cases.lead_attorney_id pattern for cross-entity soft links. Like contacts/
+ * cases, the contract's `createdAt` is an ISO day: the column is the baseline
+ * timestamptz stamp and the API mapper collapses it to its UTC date part.
+ */
+export const tasks = pgTable(
+  "tasks",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    firmId: uuid("firm_id")
+      .notNull()
+      .references(() => firms.id),
+    title: text("title").notNull(),
+    dueDate: date("due_date", { mode: "string" }).notNull(),
+    priority: text("priority").notNull().default("medium"),
+    status: text("status").notNull().default("todo"),
+    caseId: uuid("case_id").references(() => cases.id),
+    assigneeId: uuid("assignee_id").notNull(),
+    description: text("description"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("tasks_firm_id_idx").on(table.firmId),
+    index("tasks_case_id_idx").on(table.caseId),
+  ],
+);
+
 export const firmsRelations = relations(firms, ({ many }) => ({
   users: many(users),
   sessions: many(sessions),
@@ -252,7 +344,19 @@ export const contactsRelations = relations(contacts, ({ one, many }) => ({
   cases: many(cases),
 }));
 
-export const casesRelations = relations(cases, ({ one }) => ({
+export const casesRelations = relations(cases, ({ one, many }) => ({
   firm: one(firms, { fields: [cases.firmId], references: [firms.id] }),
   client: one(contacts, { fields: [cases.clientId], references: [contacts.id] }),
+  events: many(events),
+  tasks: many(tasks),
+}));
+
+export const eventsRelations = relations(events, ({ one }) => ({
+  firm: one(firms, { fields: [events.firmId], references: [firms.id] }),
+  kase: one(cases, { fields: [events.caseId], references: [cases.id] }),
+}));
+
+export const tasksRelations = relations(tasks, ({ one }) => ({
+  firm: one(firms, { fields: [tasks.firmId], references: [firms.id] }),
+  kase: one(cases, { fields: [tasks.caseId], references: [cases.id] }),
 }));

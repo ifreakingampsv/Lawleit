@@ -9,6 +9,10 @@ import { CasesService } from "../services/cases/service.js";
 import { caseRoutes } from "./cases.js";
 import { ContactsService } from "../services/contacts/service.js";
 import { contactRoutes } from "./contacts.js";
+import { EventsService } from "../services/events/service.js";
+import { eventRoutes } from "./events.js";
+import { TasksService } from "../services/tasks/service.js";
+import { taskRoutes } from "./tasks.js";
 import { DB_REQUIRED, extractToken, requireAuth } from "./requestAuth.js";
 
 export type ProtectedRoutesOptions = {
@@ -77,6 +81,8 @@ export async function protectedRoutes(
   const userService = repos ? new UserService(repos, options.mailer) : null;
   const contactsService = repos ? new ContactsService(repos) : null;
   const casesService = repos ? new CasesService(repos) : null;
+  const eventsService = repos ? new EventsService(repos) : null;
+  const tasksService = repos ? new TasksService(repos) : null;
 
   // The guard guarantees services exist whenever a handler runs; the helper
   // narrows the types without assertions.
@@ -116,4 +122,9 @@ export async function protectedRoutes(
   // Ticket 10: the cases surface (routes/cases.ts), same guard, same
   // every-member-manages rule.
   await app.register(caseRoutes, { casesService });
+
+  // Ticket 11: the calendar + tasks surfaces (routes/events.ts,
+  // routes/tasks.ts), same guard, same every-member-manages rule.
+  await app.register(eventRoutes, { eventsService });
+  await app.register(taskRoutes, { tasksService });
 }

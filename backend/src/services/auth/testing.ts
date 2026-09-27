@@ -3,6 +3,10 @@ import { InMemoryCaseNumberRepository, InMemoryCaseRepository } from "../cases/i
 import type { CaseRow } from "../cases/repository.js";
 import { InMemoryContactRepository } from "../contacts/in-memory.js";
 import type { ContactRow } from "../contacts/repository.js";
+import { InMemoryEventRepository } from "../events/in-memory.js";
+import type { EventRow } from "../events/repository.js";
+import { InMemoryTaskRepository } from "../tasks/in-memory.js";
+import type { TaskRow } from "../tasks/repository.js";
 import type {
   AuthRepositories,
   FirmPatch,
@@ -178,14 +182,16 @@ interface Store {
   cases: CaseRow[];
   /** Keyed `${firmId}:${year}` — the in-memory twin of case_number_counters. */
   caseNumbers: Map<string, number>;
+  events: EventRow[];
+  tasks: TaskRow[];
 }
 
 /**
  * Builds one independent in-memory repo set. `transaction` runs the callback
  * against the same store (single-process tests have no partial failure to
  * roll back; the Drizzle impl owns real atomicity). Module repositories
- * (contacts, ticket 09; cases, ticket 10) share this store so their tests
- * bind the same way.
+ * (contacts, ticket 09; cases, ticket 10; events + tasks, ticket 11) share
+ * this store so their tests bind the same way.
  */
 export function inMemoryAuthRepositories(): AuthRepositories {
   const store: Store = {
@@ -196,6 +202,8 @@ export function inMemoryAuthRepositories(): AuthRepositories {
     contacts: [],
     cases: [],
     caseNumbers: new Map(),
+    events: [],
+    tasks: [],
   };
   const repos: AuthRepositories = {
     firms: new InMemoryFirmRepository(store),
@@ -205,6 +213,8 @@ export function inMemoryAuthRepositories(): AuthRepositories {
     contacts: new InMemoryContactRepository(store.contacts),
     cases: new InMemoryCaseRepository(store.cases),
     caseNumbers: new InMemoryCaseNumberRepository(store.caseNumbers),
+    events: new InMemoryEventRepository(store.events),
+    tasks: new InMemoryTaskRepository(store.tasks),
     async transaction(work) {
       return work(repos);
     },

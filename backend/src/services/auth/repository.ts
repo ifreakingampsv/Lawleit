@@ -16,6 +16,8 @@
 
 import type { CaseNumberRepository, CaseRepository } from "../cases/repository.js";
 import type { ContactRepository } from "../contacts/repository.js";
+import type { EventRepository } from "../events/repository.js";
+import type { TaskRepository } from "../tasks/repository.js";
 
 export interface FirmRow {
   id: string;
@@ -187,5 +189,8 @@ export interface AuthRepositories {
   /** Ticket 10: cases and their per-firm-year number counters ditto. */
   cases: CaseRepository;
   caseNumbers: CaseNumberRepository;
+  /** Ticket 11: calendar events and tasks ride the same aggregate and seam. */
+  events: EventRepository;
+  tasks: TaskRepository;
   transaction<T>(work: (repos: AuthRepositories) => Promise<T>): Promise<T>;
 }
