@@ -5,6 +5,8 @@ import type { AuthService } from "../services/auth/service.js";
 import type { Mailer } from "../services/auth/mailer.js";
 import { FirmService } from "../services/firm/service.js";
 import { USER_ROLES, UserService } from "../services/users/service.js";
+import { ContactsService } from "../services/contacts/service.js";
+import { contactRoutes } from "./contacts.js";
 import { DB_REQUIRED, extractToken, requireAuth } from "./requestAuth.js";
 
 export type ProtectedRoutesOptions = {
@@ -71,6 +73,7 @@ export async function protectedRoutes(
 
   const firmService = repos ? new FirmService(repos) : null;
   const userService = repos ? new UserService(repos, options.mailer) : null;
+  const contactsService = repos ? new ContactsService(repos) : null;
 
   // The guard guarantees services exist whenever a handler runs; the helper
   // narrows the types without assertions.
@@ -102,4 +105,8 @@ export async function protectedRoutes(
     const auth = requireAuth(request);
     return reply.send(await service(userService).update(auth.user, auth.firm.id, id, patch));
   });
+
+  // Ticket 09: the contacts surface (routes/contacts.ts) inherits this
+  // plugin's session guard and every member manages it — practice data.
+  await app.register(contactRoutes, { contactsService });
 }

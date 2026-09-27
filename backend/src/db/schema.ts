@@ -14,6 +14,7 @@ import { sql } from "drizzle-orm";
 
 /**
  * Ticket 07 tables: firms, users, sessions, password_reset_tokens.
+ * Ticket 09 table: contacts.
  *
  * Conventions (drizzle/README.md): snake_case names, uuid primary keys with
  * gen_random_uuid() defaults, firm_id uuid not null + index on every tenant
@@ -117,9 +118,42 @@ export const passwordResetTokens = pgTable(
   ],
 );
 
+/**
+ * Contacts (ticket 09) — the firm's directory of clients, companies, opposing
+ * parties, witnesses and referral sources. No unique-ish business fields (the
+ * contract's Contact has none: emails repeat across contacts), so no partial
+ * unique indexes here — soft delete needs no index carve-out. `case_ids` is a
+ * uuid[] mirror of the linked cases (maintained by the contacts/cases
+ * services; ticket 10 owns the case side, ticket 16 conversion appends to it),
+ * kept as a plain array rather than a join table to match the contract's
+ * `caseIds: ID[]` shape.
+ */
+export const contacts = pgTable(
+  "contacts",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    firmId: uuid("firm_id")
+      .notNull()
+      .references(() => firms.id),
+    type: text("type").notNull().default("client"),
+    name: text("name").notNull(),
+    company: text("company"),
+    email: text("email").notNull().default(""),
+    phone: text("phone").notNull().default(""),
+    address: text("address").notNull().default(""),
+    caseIds: uuid("case_ids").array().notNull().default(sql`'{}'::uuid[]`),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [index("contacts_firm_id_idx").on(table.firmId)],
+);
+
 export const firmsRelations = relations(firms, ({ many }) => ({
   users: many(users),
   sessions: many(sessions),
+  contacts: many(contacts),
 }));
 
 export const usersRelations = relations(users, ({ one, many }) => ({
@@ -136,4 +170,8 @@ export const sessionsRelations = relations(sessions, ({ one }) => ({
 export const passwordResetTokensRelations = relations(passwordResetTokens, ({ one }) => ({
   user: one(users, { fields: [passwordResetTokens.userId], references: [users.id] }),
   firm: one(firms, { fields: [passwordResetTokens.firmId], references: [firms.id] }),
+}));
+
+export const contactsRelations = relations(contacts, ({ one }) => ({
+  firm: one(firms, { fields: [contacts.firmId], references: [firms.id] }),
 }));

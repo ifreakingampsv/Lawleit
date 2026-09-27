@@ -8,7 +8,13 @@
  * Tenancy (ADR-0003): every repo method that takes a firm scope filters by it;
  * cross-firm ids must look up as "not found", never as an error that leaks
  * existence. Each module's tests assert that.
+ *
+ * Since ticket 09 this aggregate carries the module repositories too
+ * (`contacts`), so every module's tables share one transaction() seam — the
+ * wiring functions in testing.ts / drizzle-repository.ts attach them.
  */
+
+import type { ContactRepository } from "../contacts/repository.js";
 
 export interface FirmRow {
   id: string;
@@ -174,5 +180,7 @@ export interface AuthRepositories {
   users: UserRepository;
   sessions: SessionRepository;
   passwordResets: PasswordResetRepository;
+  /** Ticket 09: contacts ride the same aggregate and transaction seam. */
+  contacts: ContactRepository;
   transaction<T>(work: (repos: AuthRepositories) => Promise<T>): Promise<T>;
 }

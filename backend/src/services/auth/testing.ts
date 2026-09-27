@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { InMemoryContactRepository } from "../contacts/in-memory.js";
+import type { ContactRow } from "../contacts/repository.js";
 import type {
   AuthRepositories,
   FirmPatch,
@@ -170,20 +172,23 @@ interface Store {
   users: UserRow[];
   sessions: NewSession[];
   resetTokens: ResetTokenRow[];
+  contacts: ContactRow[];
 }
 
 /**
  * Builds one independent in-memory repo set. `transaction` runs the callback
  * against the same store (single-process tests have no partial failure to
- * roll back; the Drizzle impl owns real atomicity).
+ * roll back; the Drizzle impl owns real atomicity). Module repositories
+ * (contacts, ticket 09) share this store so their tests bind the same way.
  */
 export function inMemoryAuthRepositories(): AuthRepositories {
-  const store: Store = { firms: [], users: [], sessions: [], resetTokens: [] };
+  const store: Store = { firms: [], users: [], sessions: [], resetTokens: [], contacts: [] };
   const repos: AuthRepositories = {
     firms: new InMemoryFirmRepository(store),
     users: new InMemoryUserRepository(store),
     sessions: new InMemorySessionRepository(store),
     passwordResets: new InMemoryPasswordResetRepository(store),
+    contacts: new InMemoryContactRepository(store.contacts),
     async transaction(work) {
       return work(repos);
     },

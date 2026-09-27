@@ -8,6 +8,13 @@
       "when": 1790540689125,
       "tag": "0000_dry_raider",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790544062821,
+      "tag": "0001_mature_jocasta",
+      "breakpoints": true
     }
   ]
 }
