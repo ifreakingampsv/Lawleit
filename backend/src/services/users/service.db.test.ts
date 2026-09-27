@@ -23,7 +23,11 @@ describe.skipIf(!process.env.DATABASE_URL)("user management against Postgres", (
   });
 
   afterEach(async () => {
-    await handle.sql.unsafe("truncate table password_reset_tokens, sessions, users, firms cascade");
+    await handle.sql.unsafe(
+      // cases/case_number_counters hang off firms (ticket 10) — cascade would
+      // take them anyway; naming them keeps the wipe explicit.
+      "truncate table cases, case_number_counters, password_reset_tokens, sessions, users, firms cascade",
+    );
   });
 
   afterAll(async () => {

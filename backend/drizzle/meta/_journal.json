@@ -15,6 +15,13 @@
       "when": 1790544062821,
       "tag": "0001_mature_jocasta",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790546196200,
+      "tag": "0002_wooden_silver_sable",
+      "breakpoints": true
     }
   ]
 }

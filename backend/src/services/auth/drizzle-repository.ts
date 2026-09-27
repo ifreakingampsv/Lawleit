@@ -4,6 +4,7 @@ import type { PostgresJsDatabase, PostgresJsQueryResultHKT } from "drizzle-orm/p
 import type { ExtractTablesWithRelations } from "drizzle-orm";
 import type { DbHandle } from "../../db/client.js";
 import { firms, passwordResetTokens, sessions, users } from "../../db/schema.js";
+import { DrizzleCaseNumberRepository, DrizzleCaseRepository } from "../cases/drizzle.js";
 import { DrizzleContactRepository } from "../contacts/drizzle.js";
 import type {
   AuthRepositories,
@@ -224,6 +225,8 @@ export function reposOnExecutor(exec: DbExecutor): AuthRepositories {
     sessions: new DrizzleSessionRepository(exec),
     passwordResets: new DrizzlePasswordResetRepository(exec),
     contacts: new DrizzleContactRepository(exec),
+    cases: new DrizzleCaseRepository(exec),
+    caseNumbers: new DrizzleCaseNumberRepository(exec),
     transaction: () => {
       throw new Error("transaction() is only available on the root repository set");
     },

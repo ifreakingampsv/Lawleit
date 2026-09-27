@@ -4,7 +4,9 @@ import {
   boolean,
   date,
   index,
+  integer,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -15,6 +17,7 @@ import { sql } from "drizzle-orm";
 /**
  * Ticket 07 tables: firms, users, sessions, password_reset_tokens.
  * Ticket 09 table: contacts.
+ * Ticket 10 tables: cases, case_number_counters.
  *
  * Conventions (drizzle/README.md): snake_case names, uuid primary keys with
  * gen_random_uuid() defaults, firm_id uuid not null + index on every tenant
@@ -150,10 +153,82 @@ export const contacts = pgTable(
   (table) => [index("contacts_firm_id_idx").on(table.firmId)],
 );
 
+/**
+ * Cases (ticket 10) — the firm's matters. Column set mirrors the contract's
+ * Case (app/src/lib/data/types.ts) 1:1: money is bigint paise
+ * (billable_rate, trust_balance), dates are plain `date` columns (the contract
+ * carries ISO YYYY-MM-DD strings), and status/stage live as text with the
+ * contract's vocabularies enforced in the service. `number` is server-assigned
+ * ("2026-XXXX" — case_number_counters below); the partial unique index on
+ * (firm_id, number) of live rows is the race backstop behind the counter.
+ * `client_id` is a nullable FK to contacts: the model allows a matter without
+ * a client yet (the mock/reference store "" there), and soft deletes keep the
+ * referenced row alive so no ON DELETE action is needed. lead_attorney_id has
+ * no FK on purpose — cross-entity references without an existence rule mirror
+ * the reference backend (contacts.case_ids is the same kind of soft link).
+ */
+export const cases = pgTable(
+  "cases",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    firmId: uuid("firm_id")
+      .notNull()
+      .references(() => firms.id),
+    number: text("number").notNull(),
+    title: text("title").notNull(),
+    clientId: uuid("client_id").references(() => contacts.id),
+    practiceArea: text("practice_area").notNull().default("General"),
+    stage: text("stage").notNull().default("intake"),
+    status: text("status").notNull().default("open"),
+    openDate: date("open_date", { mode: "string" }).notNull(),
+    courtDate: date("court_date", { mode: "string" }),
+    statute: text("statute"),
+    leadAttorneyId: uuid("lead_attorney_id").notNull(),
+    description: text("description").notNull().default(""),
+    billableRate: bigint("billable_rate", { mode: "number" }).notNull().default(300000),
+    trustBalance: bigint("trust_balance", { mode: "number" }).notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("cases_firm_id_idx").on(table.firmId),
+    index("cases_client_id_idx").on(table.clientId),
+    uniqueIndex("cases_firm_number_live_key")
+      .on(table.firmId, table.number)
+      .where(sql`deleted_at is null`),
+  ],
+);
+
+/**
+ * Case number counters (ticket 10) — one row per (firm, year) holding the
+ * last sequence handed out for the server-assigned "YYYY-NNNN" case numbers.
+ * The reference backend counts rows (`length + 50`), which reuses numbers
+ * after deletions and collides under concurrent creates; a counter row
+ * incremented by an INSERT … ON CONFLICT DO UPDATE inside the create
+ * transaction is atomic per firm-year (the row lock serializes concurrent
+ * creates) and never reuses a number. The composite primary key leads with
+ * firm_id, so the tenant index the conventions require is the key itself.
+ */
+export const caseNumberCounters = pgTable(
+  "case_number_counters",
+  {
+    firmId: uuid("firm_id")
+      .notNull()
+      .references(() => firms.id),
+    year: integer("year").notNull(),
+    lastValue: integer("last_value").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.firmId, table.year] })],
+);
+
 export const firmsRelations = relations(firms, ({ many }) => ({
   users: many(users),
   sessions: many(sessions),
   contacts: many(contacts),
+  cases: many(cases),
 }));
 
 export const usersRelations = relations(users, ({ one, many }) => ({
@@ -172,6 +247,12 @@ export const passwordResetTokensRelations = relations(passwordResetTokens, ({ on
   firm: one(firms, { fields: [passwordResetTokens.firmId], references: [firms.id] }),
 }));
 
-export const contactsRelations = relations(contacts, ({ one }) => ({
+export const contactsRelations = relations(contacts, ({ one, many }) => ({
   firm: one(firms, { fields: [contacts.firmId], references: [firms.id] }),
+  cases: many(cases),
+}));
+
+export const casesRelations = relations(cases, ({ one }) => ({
+  firm: one(firms, { fields: [cases.firmId], references: [firms.id] }),
+  client: one(contacts, { fields: [cases.clientId], references: [contacts.id] }),
 }));

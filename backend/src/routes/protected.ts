@@ -5,6 +5,8 @@ import type { AuthService } from "../services/auth/service.js";
 import type { Mailer } from "../services/auth/mailer.js";
 import { FirmService } from "../services/firm/service.js";
 import { USER_ROLES, UserService } from "../services/users/service.js";
+import { CasesService } from "../services/cases/service.js";
+import { caseRoutes } from "./cases.js";
 import { ContactsService } from "../services/contacts/service.js";
 import { contactRoutes } from "./contacts.js";
 import { DB_REQUIRED, extractToken, requireAuth } from "./requestAuth.js";
@@ -74,6 +76,7 @@ export async function protectedRoutes(
   const firmService = repos ? new FirmService(repos) : null;
   const userService = repos ? new UserService(repos, options.mailer) : null;
   const contactsService = repos ? new ContactsService(repos) : null;
+  const casesService = repos ? new CasesService(repos) : null;
 
   // The guard guarantees services exist whenever a handler runs; the helper
   // narrows the types without assertions.
@@ -109,4 +112,8 @@ export async function protectedRoutes(
   // Ticket 09: the contacts surface (routes/contacts.ts) inherits this
   // plugin's session guard and every member manages it — practice data.
   await app.register(contactRoutes, { contactsService });
+
+  // Ticket 10: the cases surface (routes/cases.ts), same guard, same
+  // every-member-manages rule.
+  await app.register(caseRoutes, { casesService });
 }

@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { InMemoryCaseNumberRepository, InMemoryCaseRepository } from "../cases/in-memory.js";
+import type { CaseRow } from "../cases/repository.js";
 import { InMemoryContactRepository } from "../contacts/in-memory.js";
 import type { ContactRow } from "../contacts/repository.js";
 import type {
@@ -173,22 +175,36 @@ interface Store {
   sessions: NewSession[];
   resetTokens: ResetTokenRow[];
   contacts: ContactRow[];
+  cases: CaseRow[];
+  /** Keyed `${firmId}:${year}` — the in-memory twin of case_number_counters. */
+  caseNumbers: Map<string, number>;
 }
 
 /**
  * Builds one independent in-memory repo set. `transaction` runs the callback
  * against the same store (single-process tests have no partial failure to
  * roll back; the Drizzle impl owns real atomicity). Module repositories
- * (contacts, ticket 09) share this store so their tests bind the same way.
+ * (contacts, ticket 09; cases, ticket 10) share this store so their tests
+ * bind the same way.
  */
 export function inMemoryAuthRepositories(): AuthRepositories {
-  const store: Store = { firms: [], users: [], sessions: [], resetTokens: [], contacts: [] };
+  const store: Store = {
+    firms: [],
+    users: [],
+    sessions: [],
+    resetTokens: [],
+    contacts: [],
+    cases: [],
+    caseNumbers: new Map(),
+  };
   const repos: AuthRepositories = {
     firms: new InMemoryFirmRepository(store),
     users: new InMemoryUserRepository(store),
     sessions: new InMemorySessionRepository(store),
     passwordResets: new InMemoryPasswordResetRepository(store),
     contacts: new InMemoryContactRepository(store.contacts),
+    cases: new InMemoryCaseRepository(store.cases),
+    caseNumbers: new InMemoryCaseNumberRepository(store.caseNumbers),
     async transaction(work) {
       return work(repos);
     },

@@ -14,6 +14,7 @@
  * wiring functions in testing.ts / drizzle-repository.ts attach them.
  */
 
+import type { CaseNumberRepository, CaseRepository } from "../cases/repository.js";
 import type { ContactRepository } from "../contacts/repository.js";
 
 export interface FirmRow {
@@ -172,8 +173,9 @@ export interface PasswordResetRepository {
 /**
  * The aggregate handed to services. transaction() is the seam's atomicity
  * primitive: inside the callback every repo is bound to one database
- * transaction, so multi-row writes (firm + owner, password + token + sessions)
- * commit or roll back together. In-memory fakes run the callback directly.
+ * transaction, so multi-row writes (firm + owner, password + token + sessions,
+ * counter + case) commit or roll back together. In-memory fakes run the
+ * callback directly.
  */
 export interface AuthRepositories {
   firms: FirmRepository;
@@ -182,5 +184,8 @@ export interface AuthRepositories {
   passwordResets: PasswordResetRepository;
   /** Ticket 09: contacts ride the same aggregate and transaction seam. */
   contacts: ContactRepository;
+  /** Ticket 10: cases and their per-firm-year number counters ditto. */
+  cases: CaseRepository;
+  caseNumbers: CaseNumberRepository;
   transaction<T>(work: (repos: AuthRepositories) => Promise<T>): Promise<T>;
 }
