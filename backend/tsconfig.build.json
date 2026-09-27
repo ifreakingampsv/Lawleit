@@ -7,5 +7,5 @@
     "declaration": false,
     "sourceMap": true
   },
-  "exclude": ["src/**/*.test.ts", "vitest.config.ts", "drizzle.config.ts"]
+  "exclude": ["src/**/*.test.ts", "src/services/auth/testing.ts", "vitest.config.ts", "drizzle.config.ts"]
 }

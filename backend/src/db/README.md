@@ -8,8 +8,11 @@ Plain Postgres (Supabase-hosted, ADR-0002) through Drizzle:
   is unset; `closeDb()` tears pools down (app shutdown, tests). TLS defaults
   to required for managed Postgres unless the URL carries its own `sslmode`,
   and `?pgbouncer=true` URLs get prepared statements disabled.
-- `schema.ts` — Drizzle table definitions. Empty until ticket 07; new tables
-  must follow the baseline conventions in `drizzle/README.md`.
+- `schema.ts` — Drizzle table definitions. Ticket 07 owns `firms`, `users`,
+  `sessions` (primary key = the session token), and `password_reset_tokens`
+  (only token hashes; the ticket's one-line justification lives in the schema
+  comments). New tables must follow the baseline conventions in
+  `drizzle/README.md`.
 - `migrate.ts` — `npm run db:migrate`: applies everything in `drizzle/` and
   exits nonzero on failure. Generate SQL with `npm run db:generate`,
   browse with `npm run db:studio`.

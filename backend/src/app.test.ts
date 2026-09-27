@@ -8,6 +8,8 @@ const testConfig: AppConfig = {
   corsOrigins: ["http://localhost:5173"],
   sessionSecret: "test-secret",
   databaseUrl: null,
+  cookieSameSite: "lax",
+  cookieSecure: false,
 };
 
 afterEach(async () => {

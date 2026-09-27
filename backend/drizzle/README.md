@@ -5,8 +5,9 @@ SQL files here), applied by `npm run db:migrate` (`src/db/migrate.ts`, tracked
 in the `drizzle.__drizzle_migrations` table). No hand edits to generated SQL —
 change the schema in `src/db/schema.ts` and regenerate.
 
-`meta/_journal.json` was seeded empty (no tables exist yet — ticket 07 owns the
-first real migration).
+`meta/_journal.json` started empty; migration `0000_dry_raider.sql` (ticket 07)
+created the first tables — `firms`, `users`, `sessions`,
+`password_reset_tokens`.
 
 ## Baseline table conventions (from the first migration onward)
 

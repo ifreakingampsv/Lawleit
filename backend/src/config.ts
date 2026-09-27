@@ -32,6 +32,15 @@ const envSchema = z.object({
       )
       .optional(),
   ),
+  // Session cookie (ticket 07): lax matches the reference backend and the
+  // same-origin/proxied deploys. The production cross-site deploy (ticket 19,
+  // Vercel frontend + Fly API) must set COOKIE_SAMESITE=none — which browsers
+  // only honor with Secure — so set COOKIE_SECURE=true with it.
+  COOKIE_SAMESITE: z.enum(["lax", "none"]).default("lax"),
+  COOKIE_SECURE: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
 });
 
 export interface AppConfig {
@@ -39,6 +48,8 @@ export interface AppConfig {
   corsOrigins: string[];
   sessionSecret: string;
   databaseUrl: string | null;
+  cookieSameSite: "lax" | "none";
+  cookieSecure: boolean;
 }
 
 /**
@@ -56,11 +67,14 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     });
     throw new ConfigError(`${problems.join("; ")} — see backend/.env.example`);
   }
-  const { PORT, CORS_ORIGINS, SESSION_SECRET, DATABASE_URL } = parsed.data;
+  const { PORT, CORS_ORIGINS, SESSION_SECRET, DATABASE_URL, COOKIE_SAMESITE, COOKIE_SECURE } =
+    parsed.data;
   return {
     port: PORT,
     corsOrigins: CORS_ORIGINS,
     sessionSecret: SESSION_SECRET,
     databaseUrl: DATABASE_URL ?? null,
+    cookieSameSite: COOKIE_SAMESITE,
+    cookieSecure: COOKIE_SECURE,
   };
 }

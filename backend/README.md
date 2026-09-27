@@ -56,6 +56,59 @@ and `/health` reports `"db":"unconfigured"`; with one set it reports `"db":"ok"`
 after a live `SELECT 1` (`"db":"unreachable"` if the database is down — the
 endpoint never fails).
 
+## Auth (production backend, ticket 07)
+
+Real authentication per [docs/API_CONTRACT.md](../docs/API_CONTRACT.md); the
+token scheme decision is recorded in
+[ADR-0005](../docs/adr/0005-auth-token-scheme.md):
+
+- **Tokens** are opaque random 256-bit values stored server-side in
+  `sessions` (revocable by logout, password reset, and deactivation) — not
+  JWTs. Login/signup return `{ token, user, firm, users }` and set the
+  `lawleit_session` HttpOnly cookie exactly as the reference backend does.
+  Every other route requires the bearer token or the cookie; failures answer
+  `401 { "error": "Not signed in" }`.
+- **Cookies** are configurable for the production cross-site deploy
+  (ticket 19): `COOKIE_SAMESITE=lax|none` (default `lax`) and
+  `COOKIE_SECURE=true|false` (default `false`). SameSite=None must ship with
+  `COOKIE_SECURE=true` or browsers ignore it.
+- **Passwords** are argon2id hashes (`@node-rs/argon2`, OWASP parameters).
+  The contract's signup payload has no password field, so a fresh account
+  holds an unguessable unset password; the password-reset flow sets the first
+  real one. Reset tokens are single-use, expire after one hour, and are stored
+  only as SHA-256 hashes; delivery goes through the `Mailer` interface
+  (`ConsoleMailer` stub logs the link — ticket 18 replaces it).
+- **Routes** beyond the contract table: `POST /auth/password-reset` (request)
+  and `POST /auth/password-reset/consume` (set new password + revoke all
+  sessions) — ticket-07 additions used by the reset flow, not wired into the
+  frontend adapter.
+
+## Tests
+
+`npm test` runs two kinds of suites:
+
+- **Unit/HTTP suites** always run: services and routes are tested against
+  in-memory repositories (`src/services/auth/testing.ts`) bound through the
+  repository seam, so no database is needed.
+- **DB-backed suites** (`describe.skipIf(!process.env.DATABASE_URL)`) run
+  against real Postgres once `DATABASE_URL` is in the environment
+  (`backend/.env` works — migrate.ts and drizzle-kit load it; export it in
+  CI). They migrate from `drizzle/` and truncate the auth tables between
+  tests — point them at a scratch database:
+
+  ```bash
+  cd backend
+  cp .env.example .env       # set DATABASE_URL (and SESSION_SECRET)
+  npm test
+  # expected: the drizzle-repository suite runs (not skipped) and passes
+  ```
+
+Honest status: the app-level contract suite (`cd app && npm run test`) and the
+smoke suite (`npm run smoke:api`) currently exercise the reference backend and
+stay green and untouched; full contract-suite acceptance of THIS backend runs
+the same way once `DATABASE_URL` exists and migrations are applied
+(`VITE_API_BASE_URL=http://127.0.0.1:3001/api/v1 npm run test`).
+
 ### Owner steps (once the Supabase project exists)
 
 1. Create the Supabase project in **Mumbai (ap-south-1)** per ADR-0002. Use it
@@ -78,8 +131,8 @@ endpoint never fails).
    npm run db:migrate
    # expected: "[lawleit-db] migrations applied from .../backend/drizzle"
    ```
-   (Until ticket 07 there are no tables yet; the command succeeds with an
-   empty journal. Re-run it after every `db:generate`.)
+   (Migration 0000 creates firms/users/sessions/password_reset_tokens.
+   Re-run the command after every `db:generate`.)
 5. Verify:
    ```bash
    npm run dev        # or: npm run build && node dist/server.js

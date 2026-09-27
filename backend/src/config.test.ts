@@ -17,6 +17,8 @@ describe("loadConfig", () => {
       corsOrigins: ["http://localhost:5173", "https://demo.lawleit.in"],
       sessionSecret: "s3cret",
       databaseUrl: null,
+      cookieSameSite: "lax",
+      cookieSecure: false,
     });
   });
 
@@ -33,5 +35,18 @@ describe("loadConfig", () => {
 
   it("rejects an out-of-range PORT", () => {
     expect(() => loadConfig({ SESSION_SECRET: "s3cret", PORT: "99999" })).toThrow(/PORT/);
+  });
+
+  it("parses cookie knobs and rejects an unknown SameSite value", () => {
+    const config = loadConfig({
+      SESSION_SECRET: "s3cret",
+      COOKIE_SAMESITE: "none",
+      COOKIE_SECURE: "true",
+    });
+    expect(config.cookieSameSite).toBe("none");
+    expect(config.cookieSecure).toBe(true);
+    expect(() =>
+      loadConfig({ SESSION_SECRET: "s3cret", COOKIE_SAMESITE: "strict" }),
+    ).toThrow(/COOKIE_SAMESITE/);
   });
 });

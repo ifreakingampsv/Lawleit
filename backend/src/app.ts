@@ -5,6 +5,14 @@ import type { AppConfig } from "./config.js";
 import { closeDb, getDb } from "./db/client.js";
 import { apiRoutes } from "./routes/index.js";
 import { healthRoutes } from "./routes/health.js";
+import type { AuthRepositories } from "./services/auth/repository.js";
+import type { Mailer } from "./services/auth/mailer.js";
+
+/** Test seams: bind fakes without a database. Production leaves them unset. */
+export interface BuildAppDeps {
+  repositories?: AuthRepositories | null;
+  mailer?: Mailer;
+}
 
 /**
  * buildApp — the deployable API without .listen(); tests drive it via .inject().
@@ -14,7 +22,10 @@ import { healthRoutes } from "./routes/health.js";
  * string verbatim to the UI, so no other field and no stack internals may
  * appear in the body.
  */
-export async function buildApp(config: AppConfig): Promise<FastifyInstance> {
+export async function buildApp(
+  config: AppConfig,
+  deps: BuildAppDeps = {},
+): Promise<FastifyInstance> {
   const app = Fastify({ logger: true });
 
   // The pool is lazy (no TCP until the first query), so opening it here never
@@ -55,7 +66,13 @@ export async function buildApp(config: AppConfig): Promise<FastifyInstance> {
     reply.status(404).send({ error: `No route: ${request.method} ${path}` });
   });
 
-  await app.register(apiRoutes, { prefix: "/api/v1", db });
+  await app.register(apiRoutes, {
+    prefix: "/api/v1",
+    db,
+    repositories: deps.repositories,
+    mailer: deps.mailer,
+    cookie: { sameSite: config.cookieSameSite, secure: config.cookieSecure },
+  });
   // The reference backend also serves /health prefixless; the smoke suite and
   // the vite proxy rely on both forms.
   await app.register(healthRoutes, { db });
