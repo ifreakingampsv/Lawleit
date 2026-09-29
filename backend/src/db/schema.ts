@@ -28,6 +28,7 @@ import { sql } from "drizzle-orm";
  * Ticket 14 table: payments.
  * Ticket 15 table: trust_transactions.
  * Ticket 16 tables: leads, lead_stage_history.
+ * Ticket 17 table: documents.
  *
  * Conventions (drizzle/README.md): snake_case names, uuid primary keys with
  * gen_random_uuid() defaults, firm_id uuid not null + index on every tenant
@@ -775,6 +776,63 @@ export const leadStageHistory = pgTable(
   ],
 );
 
+/**
+ * Documents (ticket 17) — the firm's file library: metadata rows here, bytes
+ * in object storage (Supabase Storage's S3 layer behind StorageService,
+ * ADR-0002). Column set mirrors the contract's DocumentFile (types.ts) with
+ * the upload-ticket deltas:
+ *
+ * - `size_bytes` is the exact byte count as bigint; the contract's
+ *   `sizeKb` shape is KB-granular, so the API mapper renders
+ *   round(size_bytes / 1024) (metadata creates store sizeKb × 1024, so
+ *   they round-trip exactly; uploads store the browser's exact byte count).
+ * - `mime_type` / `storage_key` are DB-only — the API mapper whitelists
+ *   them out (the events.`source` seam treatment) and exposes the derived
+ *   `hasFile` boolean instead. `storage_key` is only ever written with a
+ *   key minted by the firm's own sign-upload (the service enforces the
+ *   firms/<firmId>/ prefix), so a document can never point at another
+ *   tenant's object.
+ * - `uploaded_by` has no FK on purpose — the cases.lead_attorney_id pattern
+ *   for cross-entity soft links.
+ * - `starred` / `template_fields` mirror the model's optional fields as
+ *   nullable columns (the events.reminders pattern for the array).
+ *
+ * `case_id` is a nullable FK, indexed (the ticket's FK-index requirement;
+ * the model allows firm-wide documents — the seed's Templates folder has
+ * none). Soft deletes keep the referenced case alive, so no ON DELETE
+ * action. No unique-ish business fields → no partial unique indexes (the
+ * contacts pattern).
+ */
+export const documents = pgTable(
+  "documents",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    firmId: uuid("firm_id")
+      .notNull()
+      .references(() => firms.id),
+    caseId: uuid("case_id").references(() => cases.id),
+    name: text("name").notNull(),
+    folder: text("folder").notNull().default("General"),
+    kind: text("kind").notNull().default("doc"),
+    /** Exact byte count; the contract shape renders KB (see above). */
+    sizeBytes: bigint("size_bytes", { mode: "number" }).notNull().default(0),
+    mimeType: text("mime_type"),
+    /** Object-storage key; null = metadata-only document (no bytes yet). */
+    storageKey: text("storage_key"),
+    /** The session user that signed the upload / created the row — soft link. */
+    uploadedBy: uuid("uploaded_by").notNull(),
+    starred: boolean("starred"),
+    templateFields: text("template_fields").array(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("documents_firm_id_idx").on(table.firmId),
+    index("documents_case_id_idx").on(table.caseId),
+  ],
+);
+
 export const firmsRelations = relations(firms, ({ many }) => ({
   users: many(users),
   sessions: many(sessions),
@@ -867,4 +925,9 @@ export const leadsRelations = relations(leads, ({ one, many }) => ({
 export const leadStageHistoryRelations = relations(leadStageHistory, ({ one }) => ({
   firm: one(firms, { fields: [leadStageHistory.firmId], references: [firms.id] }),
   lead: one(leads, { fields: [leadStageHistory.leadId], references: [leads.id] }),
+}));
+
+export const documentsRelations = relations(documents, ({ one }) => ({
+  firm: one(firms, { fields: [documents.firmId], references: [firms.id] }),
+  kase: one(cases, { fields: [documents.caseId], references: [cases.id] }),
 }));

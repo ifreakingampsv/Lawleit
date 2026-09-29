@@ -41,7 +41,31 @@ const envSchema = z.object({
     .enum(["true", "false"])
     .default("false")
     .transform((value) => value === "true"),
+  // Ticket 17 — object storage (Supabase Storage's S3-compatible API, same
+  // project as the database). All five connection variables are OPTIONAL as a
+  // group: unset = the API runs without storage and the upload/download
+  // routes answer 503 (the same pattern as DATABASE_URL). A PARTIAL set is a
+  // misconfiguration, not a mode — loadConfig fails boot naming what is
+  // missing. S3_MAX_UPLOAD_MB sizes the sign-upload cap (default 25).
+  S3_ENDPOINT: z.string().trim().optional(),
+  S3_REGION: z.string().trim().optional(),
+  S3_BUCKET: z.string().trim().optional(),
+  S3_ACCESS_KEY_ID: z.string().trim().optional(),
+  S3_SECRET_ACCESS_KEY: z.string().trim().optional(),
+  S3_MAX_UPLOAD_MB: z.coerce.number().int().min(1).max(1024).default(25),
 });
+
+/** Object-storage connection (ticket 17) — see config.ts S3_* notes. */
+export interface StorageConfig {
+  /** S3-compatible endpoint, e.g. https://<project-ref>.supabase.co/storage/v1/s3 */
+  endpoint: string;
+  region: string;
+  bucket: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+  /** Sign-upload size cap in bytes. */
+  maxUploadBytes: number;
+}
 
 export interface AppConfig {
   port: number;
@@ -50,6 +74,8 @@ export interface AppConfig {
   databaseUrl: string | null;
   cookieSameSite: "lax" | "none";
   cookieSecure: boolean;
+  /** Null when the S3_* variables are unset — storage routes answer 503. */
+  storage?: StorageConfig | null;
 }
 
 /**
@@ -69,6 +95,37 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   }
   const { PORT, CORS_ORIGINS, SESSION_SECRET, DATABASE_URL, COOKIE_SAMESITE, COOKIE_SECURE } =
     parsed.data;
+
+  // Object storage: all five variables or none (a partial set fails boot
+  // naming the missing ones — the operator fixes the deployment in one read).
+  const S3 = {
+    S3_ENDPOINT: parsed.data.S3_ENDPOINT,
+    S3_REGION: parsed.data.S3_REGION,
+    S3_BUCKET: parsed.data.S3_BUCKET,
+    S3_ACCESS_KEY_ID: parsed.data.S3_ACCESS_KEY_ID,
+    S3_SECRET_ACCESS_KEY: parsed.data.S3_SECRET_ACCESS_KEY,
+  } as const;
+  const setCount = Object.values(S3).filter((v) => v !== undefined).length;
+  let storage: StorageConfig | null = null;
+  if (setCount > 0) {
+    const missing = Object.entries(S3)
+      .filter(([, v]) => v === undefined)
+      .map(([k]) => k);
+    if (missing.length > 0) {
+      throw new ConfigError(
+        `${missing.join(", ")} must be set together (or all S3_* left unset to run without storage) — see backend/.env.example`,
+      );
+    }
+    storage = {
+      endpoint: S3.S3_ENDPOINT!,
+      region: S3.S3_REGION!,
+      bucket: S3.S3_BUCKET!,
+      accessKeyId: S3.S3_ACCESS_KEY_ID!,
+      secretAccessKey: S3.S3_SECRET_ACCESS_KEY!,
+      maxUploadBytes: parsed.data.S3_MAX_UPLOAD_MB * 1024 * 1024,
+    };
+  }
+
   return {
     port: PORT,
     corsOrigins: CORS_ORIGINS,
@@ -76,5 +133,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     databaseUrl: DATABASE_URL ?? null,
     cookieSameSite: COOKIE_SAMESITE,
     cookieSecure: COOKIE_SECURE,
+    storage,
   };
 }

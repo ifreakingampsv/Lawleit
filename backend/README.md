@@ -83,6 +83,33 @@ token scheme decision is recorded in
   sessions) — ticket-07 additions used by the reset flow, not wired into the
   frontend adapter.
 
+## Object storage (production backend, ticket 17)
+
+Real file uploads go through object storage — Supabase Storage's S3-compatible
+API per [ADR-0002](../docs/adr/0002-supabase-postgres-only.md), behind the
+`StorageService` seam (`src/services/storage/service.ts`): `presignUpload(key,
+contentType, size)`, `presignDownload(key)`, `deleteObject(key)`. The
+production binding (`src/services/storage/s3.ts`, `@aws-sdk/client-s3` +
+`@aws-sdk/s3-request-presigner`) works with any S3-compatible endpoint; tests
+bind a deterministic in-memory fake.
+
+- **Env** (all five together, optional — unset = no storage): `S3_ENDPOINT`
+  (`https://<project-ref>.supabase.co/storage/v1/s3`), `S3_REGION`
+  (`ap-south-1`), `S3_BUCKET` (a private bucket), `S3_ACCESS_KEY_ID` /
+  `S3_SECRET_ACCESS_KEY` (Storage → S3 access keys). `S3_MAX_UPLOAD_MB` caps
+  sign-upload (default 25). Full paste-in values: `backend/.env.example`.
+- **Unset state:** the upload/download routes answer
+  `503 {"error":"Storage not configured — set S3_* vars (see .env.example)"}`
+  and the documents metadata surface keeps working (the contract's
+  metadata-only mode).
+- **Flow:** `POST /documents/sign-upload` validates (type allowlist, size cap,
+  case link) and returns `{ storageKey, url, method: "PUT", expiresIn }`; the
+  browser PUTs the bytes directly to storage; `POST /documents` records the
+  metadata with that `storageKey` (additive fields, must sit under the firm's
+  own `firms/<firmId>/` prefix); `GET /documents/:id/download` returns a
+  short-lived signed GET after the permission check. Delete removes the
+  metadata (soft) and drops the object best-effort.
+
 ## Tests
 
 `npm test` runs two kinds of suites:

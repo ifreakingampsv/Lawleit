@@ -3,6 +3,8 @@ import { InMemoryCaseNumberRepository, InMemoryCaseRepository } from "../cases/i
 import type { CaseRow } from "../cases/repository.js";
 import { InMemoryContactRepository } from "../contacts/in-memory.js";
 import type { ContactRow } from "../contacts/repository.js";
+import { InMemoryDocumentRepository } from "../documents/in-memory.js";
+import type { DocumentRow } from "../documents/repository.js";
 import { InMemoryEventRepository } from "../events/in-memory.js";
 import type { EventRow } from "../events/repository.js";
 import { InMemoryTaskRepository } from "../tasks/in-memory.js";
@@ -210,6 +212,7 @@ interface Store {
   trust: TrustTransactionRow[];
   leads: LeadRow[];
   leadStageHistory: LeadStageHistoryRow[];
+  documents: DocumentRow[];
 }
 
 /**
@@ -240,6 +243,7 @@ export function inMemoryAuthRepositories(): AuthRepositories {
     trust: [],
     leads: [],
     leadStageHistory: [],
+    documents: [],
   };
   const repos: AuthRepositories = {
     firms: new InMemoryFirmRepository(store),
@@ -260,6 +264,7 @@ export function inMemoryAuthRepositories(): AuthRepositories {
     trust: new InMemoryTrustRepository(store.trust),
     leads: new InMemoryLeadRepository(store.leads),
     leadStageHistory: new InMemoryLeadStageHistoryRepository(store.leadStageHistory),
+    documents: new InMemoryDocumentRepository(store.documents),
     async transaction(work) {
       return work(repos);
     },

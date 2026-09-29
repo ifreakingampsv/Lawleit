@@ -16,6 +16,7 @@
 
 import type { CaseNumberRepository, CaseRepository } from "../cases/repository.js";
 import type { ContactRepository } from "../contacts/repository.js";
+import type { DocumentRepository } from "../documents/repository.js";
 import type { EventRepository } from "../events/repository.js";
 import type { TaskRepository } from "../tasks/repository.js";
 import type { TimeEntryRepository } from "../time/repository.js";
@@ -219,5 +220,8 @@ export interface AuthRepositories {
   /** Ticket 16: leads and their stage-history audit trail ditto. */
   leads: LeadRepository;
   leadStageHistory: LeadStageHistoryRepository;
+  /** Ticket 17: documents ride the same aggregate and transaction seam —
+   * the metadata row and its storage-key binding commit atomically. */
+  documents: DocumentRepository;
   transaction<T>(work: (repos: AuthRepositories) => Promise<T>): Promise<T>;
 }

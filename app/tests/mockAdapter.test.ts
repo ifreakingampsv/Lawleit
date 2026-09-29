@@ -174,3 +174,80 @@ describe("notifications", () => {
     expect(after.every((n) => n.read)).toBe(true);
   });
 });
+
+describe("documents — real files (ticket 17)", () => {
+  it("uploadDocument stores the bytes and the row round-trips through download", async () => {
+    const api = await fresh();
+    const file = new File(["hello lawleit"], "Motion to Compel.pdf", { type: "application/pdf" });
+
+    const doc = await api.uploadDocument({ file, folder: "Pleadings", caseId: "k1" });
+    expect(doc.hasFile).toBe(true);
+    expect(doc.name).toBe("Motion to Compel.pdf");
+    expect(doc.kind).toBe("pdf");
+    expect(doc.folder).toBe("Pleadings");
+    expect(doc.caseId).toBe("k1");
+    expect(doc.sizeKb).toBe(1);
+    expect((await api.listDocuments()).some((d) => d.id === doc.id && d.hasFile)).toBe(true);
+
+    const url = await api.getDocumentDownloadUrl(doc.id);
+    expect(url).toMatch(/^data:application\/pdf;base64,/);
+    expect(decodeURIComponent(escape(atob(url.split(",")[1]!)))).toBe("hello lawleit");
+  });
+
+  it("files above the demo cap (1 MB) are rejected with a clear message — never silently dropped", async () => {
+    const api = await fresh();
+    const tooBig = new File([new Uint8Array(1024 * 1024 + 1)], "huge.pdf", { type: "application/pdf" });
+    await expect(api.uploadDocument({ file: tooBig })).rejects.toThrow(
+      "File is too large for the demo — the limit is 1 MB (production allows 25 MB)",
+    );
+    // Nothing was recorded.
+    expect((await api.listDocuments()).some((d) => d.name === "huge.pdf")).toBe(false);
+  });
+
+  it("metadata-only documents have no bytes to download; deleting the row drops them", async () => {
+    const api = await fresh();
+    const metadataOnly = await api.createDocument({ name: "Bare.docx" });
+    expect(metadataOnly.hasFile).toBeUndefined();
+    await expect(api.getDocumentDownloadUrl(metadataOnly.id)).rejects.toThrow(
+      "Document file not found",
+    );
+
+    const file = new File(["bytes"], "Keep.pdf", { type: "application/pdf" });
+    const uploaded = await api.uploadDocument({ file });
+    await api.deleteDocument(uploaded.id);
+    await expect(api.getDocumentDownloadUrl(uploaded.id)).rejects.toThrow("Document not found");
+  });
+
+  it("uploaded blobs survive an app reload (localStorage is the DB)", async () => {
+    const api = await fresh();
+    const doc = await api.uploadDocument({ file: new File(["persist me"], "Reload.docx", { type: "text/plain" }) });
+
+    vi.resetModules();
+    const { mockAdapter: reloaded } = await import("@/lib/data/mockAdapter");
+    await reloaded.login("arjun@kaulbhatnagar.example", "demo");
+    const url = await reloaded.getDocumentDownloadUrl(doc.id);
+    expect(atob(url.split(",")[1]!)).toBe("persist me");
+  });
+
+  it("both adapters expose the same upload/download surface (api.ts is the seam)", async () => {
+    const { httpAdapter } = await import("@/lib/data/httpAdapter");
+    const { mockAdapter } = await import("@/lib/data/mockAdapter");
+    for (const method of ["uploadDocument", "getDocumentDownloadUrl"] as const) {
+      expect(typeof mockAdapter[method]).toBe("function");
+      expect(typeof httpAdapter[method]).toBe("function");
+    }
+  });
+
+  it("kindForFile maps pdf/images/office/text to the contract kinds", async () => {
+    const { kindForFile } = await import("@/lib/data/api");
+    expect(kindForFile("application/pdf", "a.pdf")).toBe("pdf");
+    expect(kindForFile("image/png", "b.png")).toBe("image");
+    expect(kindForFile("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "c.xlsx")).toBe("sheet");
+    expect(kindForFile("application/msword", "d.doc")).toBe("doc");
+    expect(kindForFile("text/plain", "e.txt")).toBe("doc");
+    expect(kindForFile("application/octet-stream", "f.bin")).toBe("other");
+    // Extension fallback for browsers that report no content type.
+    expect(kindForFile("", "g.pdf")).toBe("pdf");
+    expect(kindForFile("", "h.docx")).toBe("doc");
+  });
+});

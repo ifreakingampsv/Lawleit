@@ -1,4 +1,4 @@
-import type { LawleitApi } from "./api";
+import { kindForFile, type LawleitApi } from "./api";
 import type {
   CalendarEvent, Case, Contact, DocumentFile, Expense, Firm, Invoice,
   Lead, MessageThread, Notification, Payment, ReportDef, Session, Task,
@@ -183,6 +183,60 @@ class HttpAdapter implements LawleitApi {
   createDocument(input: Partial<DocumentFile>) { return http<DocumentFile>("POST", "/documents", { body: input }); }
   updateDocument(id: string, patch: Partial<DocumentFile>) { return http<DocumentFile>("PATCH", `/documents/${id}`, { body: patch }); }
   deleteDocument(id: string) { return http<void>("DELETE", `/documents/${id}`); }
+
+  /**
+   * Ticket 17's real-file flow, three steps: (1) sign-upload validates
+   * server-side (type allowlist, size cap, case link) and returns a
+   * short-lived signed PUT plus the storage key, (2) the browser PUTs the
+   * bytes straight to object storage — the API server never proxies file
+   * bodies, (3) the metadata record is created echoing that key, yielding
+   * the DocumentFile (hasFile comes back from the server). The PUT carries
+   * the exact content type that was signed.
+   */
+  async uploadDocument(input: { file: File; name?: string; folder?: string; caseId?: string }) {
+    const contentType = input.file.type || "application/octet-stream";
+    const fileName = (input.name ?? input.file.name).trim() || "Untitled.docx";
+    const signed = await http<{
+      storageKey: string; url: string; method: "PUT"; expiresIn: number;
+    }>("POST", "/documents/sign-upload", {
+      body: {
+        caseId: input.caseId ?? null,
+        name: fileName,
+        contentType,
+        sizeBytes: input.file.size,
+      },
+    });
+    const put = await fetch(signed.url, {
+      method: signed.method,
+      headers: { "Content-Type": contentType },
+      body: input.file,
+    });
+    if (!put.ok) {
+      let message = "Upload to storage failed";
+      try {
+        const err = (await put.json()) as { error?: string };
+        if (err.error) message = err.error;
+      } catch { /* non-JSON body — keep the generic message */ }
+      throw new ApiError(put.status, message);
+    }
+    return http<DocumentFile>("POST", "/documents", {
+      body: {
+        name: fileName,
+        folder: input.folder ?? "General",
+        caseId: input.caseId ?? null,
+        kind: kindForFile(contentType, fileName),
+        sizeBytes: input.file.size,
+        storageKey: signed.storageKey,
+        mimeType: contentType,
+      },
+    });
+  }
+
+  /** The signed GET is minted per click — it expires, so it is never cached. */
+  async getDocumentDownloadUrl(id: string) {
+    const res = await http<{ url: string; expiresIn: number }>("GET", `/documents/${id}/download`);
+    return res.url;
+  }
 
   // ---- communications ----
   listThreads() { return http<MessageThread[]>("GET", "/threads"); }

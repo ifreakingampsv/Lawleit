@@ -19,6 +19,7 @@ describe("loadConfig", () => {
       databaseUrl: null,
       cookieSameSite: "lax",
       cookieSecure: false,
+      storage: null,
     });
   });
 
@@ -48,5 +49,52 @@ describe("loadConfig", () => {
     expect(() =>
       loadConfig({ SESSION_SECRET: "s3cret", COOKIE_SAMESITE: "strict" }),
     ).toThrow(/COOKIE_SAMESITE/);
+  });
+
+  it("treats the S3_* group as optional (storage: null when all unset)", () => {
+    const config = loadConfig({ SESSION_SECRET: "s3cret" });
+    expect(config.storage).toBeNull();
+  });
+
+  it("parses the full S3_* set with the 25 MB default cap", () => {
+    const config = loadConfig({
+      SESSION_SECRET: "s3cret",
+      S3_ENDPOINT: "https://ref.supabase.co/storage/v1/s3",
+      S3_REGION: "ap-south-1",
+      S3_BUCKET: "lawleit-documents",
+      S3_ACCESS_KEY_ID: "ref-access-key",
+      S3_SECRET_ACCESS_KEY: "ref-secret",
+    });
+    expect(config.storage).toEqual({
+      endpoint: "https://ref.supabase.co/storage/v1/s3",
+      region: "ap-south-1",
+      bucket: "lawleit-documents",
+      accessKeyId: "ref-access-key",
+      secretAccessKey: "ref-secret",
+      maxUploadBytes: 25 * 1024 * 1024,
+    });
+  });
+
+  it("parses S3_MAX_UPLOAD_MB into bytes", () => {
+    const config = loadConfig({
+      SESSION_SECRET: "s3cret",
+      S3_ENDPOINT: "https://ref.supabase.co/storage/v1/s3",
+      S3_REGION: "ap-south-1",
+      S3_BUCKET: "b",
+      S3_ACCESS_KEY_ID: "k",
+      S3_SECRET_ACCESS_KEY: "s",
+      S3_MAX_UPLOAD_MB: "10",
+    });
+    expect(config.storage?.maxUploadBytes).toBe(10 * 1024 * 1024);
+  });
+
+  it("fails boot naming a partial S3_* set (a misconfiguration, not a mode)", () => {
+    const partial = {
+      SESSION_SECRET: "s3cret",
+      S3_ENDPOINT: "https://ref.supabase.co/storage/v1/s3",
+      S3_ACCESS_KEY_ID: "k",
+    };
+    expect(() => loadConfig(partial)).toThrow(/S3_REGION, S3_BUCKET, S3_SECRET_ACCESS_KEY/);
+    expect(() => loadConfig(partial)).toThrow(/see backend\/\.env\.example/);
   });
 });

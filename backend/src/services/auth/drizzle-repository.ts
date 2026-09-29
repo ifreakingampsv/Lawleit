@@ -6,6 +6,7 @@ import type { DbHandle } from "../../db/client.js";
 import { firms, passwordResetTokens, sessions, users } from "../../db/schema.js";
 import { DrizzleCaseNumberRepository, DrizzleCaseRepository } from "../cases/drizzle.js";
 import { DrizzleContactRepository } from "../contacts/drizzle.js";
+import { DrizzleDocumentRepository } from "../documents/drizzle.js";
 import { DrizzleEventRepository } from "../events/drizzle.js";
 import { DrizzleTaskRepository } from "../tasks/drizzle.js";
 import { DrizzleTimeEntryRepository } from "../time/drizzle.js";
@@ -253,6 +254,7 @@ export function reposOnExecutor(exec: DbExecutor): AuthRepositories {
     trust: new DrizzleTrustRepository(exec),
     leads: new DrizzleLeadRepository(exec),
     leadStageHistory: new DrizzleLeadStageHistoryRepository(exec),
+    documents: new DrizzleDocumentRepository(exec),
     transaction: () => {
       throw new Error("transaction() is only available on the root repository set");
     },

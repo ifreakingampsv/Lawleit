@@ -177,6 +177,13 @@ export interface DocumentFile {
   kind: "doc" | "pdf" | "sheet" | "image" | "template" | "other";
   starred?: boolean;
   templateFields?: string[]; // merge fields for template docs
+  /**
+   * Ticket 17: real bytes back this row (uploaded through `uploadDocument` —
+   * signed-URL flow in http mode, local blob in demo mode). Absent/false for
+   * metadata-only documents (seeded rows, bare creates), which have nothing
+   * to download.
+   */
+  hasFile?: boolean;
 }
 
 export interface MessageThread {

@@ -1,5 +1,5 @@
 import type {
-  CalendarEvent, Case, Contact, DocumentFile, Expense, Firm, Invoice,
+  CalendarEvent, Case, Contact, DocumentFile, Expense, Firm, ID, Invoice,
   Lead, MessageThread, Payment, ReportDef, Session, Task, TimeEntry,
   TrustTransaction, User,
 } from "./types";
@@ -84,6 +84,27 @@ export interface LawleitApi {
   createDocument(input: Partial<DocumentFile>): Promise<DocumentFile>;
   updateDocument(id: string, patch: Partial<DocumentFile>): Promise<DocumentFile>;
   deleteDocument(id: string): Promise<void>;
+  /**
+   * Ticket 17: uploads a REAL file through the adapter's flow — production:
+   * sign-upload → direct PUT to object storage → metadata record; demo: the
+   * bytes are stored in the local DB (capped at 1 MB/file). Returns the new
+   * DocumentFile with `hasFile: true`.
+   */
+  uploadDocument(input: {
+    file: File;
+    /** Defaults to file.name (keep the extension — it picks the icon). */
+    name?: string;
+    /** Target folder; defaults to "General". */
+    folder?: string;
+    /** The linked case, if any. */
+    caseId?: ID;
+  }): Promise<DocumentFile>;
+  /**
+   * Ticket 17: a URL serving the document's bytes — a short-lived signed URL
+   * in http mode, a data: URL in demo mode. Rejects for metadata-only
+   * documents (no bytes) and unknown ids.
+   */
+  getDocumentDownloadUrl(id: ID): Promise<string>;
 
   // communications
   listThreads(): Promise<MessageThread[]>;
@@ -104,4 +125,30 @@ export interface LawleitApi {
   // notifications
   listNotifications(): Promise<import("./types").Notification[]>;
   markNotificationsRead(): Promise<void>;
+}
+
+/**
+ * Ticket 17 — the ONE mime/name → `DocumentFile["kind"]` rule both adapters
+ * share, so an uploaded file carries the same icon in either mode. Order
+ * matters: pdf and images before the office/text catch-alls, extension
+ * fallback for browsers that report no content type.
+ */
+export function kindForFile(contentType: string, name: string): DocumentFile["kind"] {
+  const extension = name.split(".").pop()?.toLowerCase() ?? "";
+  if (contentType === "application/pdf" || extension === "pdf") return "pdf";
+  if (contentType.startsWith("image/")) return "image";
+  if (
+    contentType.includes("spreadsheet") || contentType === "text/csv" ||
+    ["xls", "xlsx", "csv"].includes(extension)
+  ) {
+    return "sheet";
+  }
+  if (
+    contentType === "application/msword" || contentType.includes("wordprocessing") ||
+    contentType.startsWith("text/") || contentType === "application/rtf" ||
+    ["doc", "docx", "rtf", "txt", "md", "dotx"].includes(extension)
+  ) {
+    return "doc";
+  }
+  return "other";
 }

@@ -1,4 +1,4 @@
-import type { LawleitApi } from "./api";
+import { kindForFile, type LawleitApi } from "./api";
 import type {
   CalendarEvent, Case, Contact, DocumentFile, Expense, Firm, Invoice,
   Lead, MessageThread, Notification, Payment, ReportDef, Session, Task,
@@ -22,6 +22,14 @@ import {
 const LS_KEY = "lawleit.db.v2";
 const SS_KEY = "lawleit.session.v1";
 
+/**
+ * Ticket 17 — the demo's upload cap. localStorage holds ~5 MB per origin, so
+ * real production's 25 MB cannot apply; files above 1 MB are rejected with a
+ * clear message (the demo must feel real, and silently dropping bytes would
+ * not be real).
+ */
+const DEMO_MAX_UPLOAD_BYTES = 1024 * 1024;
+
 interface DB {
   users: User[];
   firm: Firm;
@@ -35,6 +43,8 @@ interface DB {
   payments: Payment[];
   trust: TrustTransaction[];
   documents: DocumentFile[];
+  /** Ticket 17: document id → base64 data URL of the uploaded bytes. */
+  fileBlobs: Record<string, string>;
   threads: MessageThread[];
   leads: Lead[];
   notifications: Notification[];
@@ -54,6 +64,7 @@ function freshDb(): DB {
     payments: structuredClone(seedPayments),
     trust: structuredClone(seedTrust),
     documents: structuredClone(seedDocuments),
+    fileBlobs: {},
     threads: structuredClone(seedThreads),
     leads: structuredClone(seedLeads),
     notifications: [
@@ -67,7 +78,12 @@ function freshDb(): DB {
 function loadDb(): DB {
   try {
     const raw = localStorage.getItem(LS_KEY);
-    if (raw) return JSON.parse(raw) as DB;
+    if (raw) {
+      const db = JSON.parse(raw) as DB;
+      // Databases persisted before ticket 17 predate the file-blob store.
+      db.fileBlobs ??= {};
+      return db;
+    }
   } catch { /* corrupt or unavailable storage — reseed */ }
   const db = freshDb();
   persist(db);
@@ -438,7 +454,54 @@ class MockAdapter implements LawleitApi {
   async deleteDocument(id: string) {
     this.withSession();
     this.db.documents = this.db.documents.filter((d) => d.id !== id);
+    // The bytes die with the row (production drops the object best-effort).
+    delete this.db.fileBlobs[id];
     this.save();
+  }
+
+  /**
+   * Ticket 17, demo flow: the browser reads the file as a base64 data URL
+   * and the adapter stores it in the local DB beside the metadata row —
+   * no network, and downloads open the very bytes that were uploaded.
+   * Capped at 1 MB/file (localStorage quota); the message names the gap
+   * against production's 25 MB instead of silently failing.
+   */
+  async uploadDocument(input: { file: File; name?: string; folder?: string; caseId?: string }) {
+    this.withSession();
+    if (input.file.size > DEMO_MAX_UPLOAD_BYTES) {
+      throw new Error(
+        "File is too large for the demo — the limit is 1 MB (production allows 25 MB)",
+      );
+    }
+    const contentType = input.file.type || "application/octet-stream";
+    const fileName = (input.name ?? input.file.name).trim() || "Untitled.docx";
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(new Error("Could not read the file"));
+      reader.readAsDataURL(input.file);
+    });
+    const f: DocumentFile = {
+      id: nid("f"), name: fileName, folder: input.folder ?? "General",
+      caseId: input.caseId, sizeKb: Math.max(1, Math.round(input.file.size / 1024)),
+      updatedAt: new Date().toISOString().slice(0, 10),
+      kind: kindForFile(contentType, fileName), hasFile: true,
+    };
+    this.db.documents.unshift(f);
+    this.db.fileBlobs[f.id] = dataUrl;
+    this.save();
+    return f;
+  }
+
+  async getDocumentDownloadUrl(id: string) {
+    this.withSession();
+    const f = this.db.documents.find((x) => x.id === id);
+    if (!f) throw new Error("Document not found");
+    const url = this.db.fileBlobs[id];
+    if (!url) {
+      throw new Error("Document file not found — no bytes stored for this document");
+    }
+    return url;
   }
 
   // ---- communications ----

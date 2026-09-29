@@ -9,6 +9,9 @@ import { CasesService } from "../services/cases/service.js";
 import { caseRoutes } from "./cases.js";
 import { ContactsService } from "../services/contacts/service.js";
 import { contactRoutes } from "./contacts.js";
+import { DocumentsService } from "../services/documents/service.js";
+import { documentRoutes } from "./documents.js";
+import type { StorageService } from "../services/storage/service.js";
 import { EventsService } from "../services/events/service.js";
 import { eventRoutes } from "./events.js";
 import { TasksService } from "../services/tasks/service.js";
@@ -32,6 +35,11 @@ export type ProtectedRoutesOptions = {
   repos: AuthRepositories | null;
   /** Ticket 08: invite emails; defaults to the console stub. */
   mailer?: Mailer;
+  /** Ticket 17: the storage binding behind the upload/download routes; null
+   * (or absent) = the S3_* vars are unset and those routes answer 503. */
+  storage?: StorageService | null;
+  /** Ticket 17: the sign-upload size cap in bytes (default 25 MB). */
+  maxUploadBytes?: number;
 };
 
 // zod strips unknown keys, so whole-entity saves from the UI (which send id
@@ -101,6 +109,9 @@ export async function protectedRoutes(
   const paymentsService = repos ? new PaymentsService(repos) : null;
   const trustService = repos ? new TrustService(repos) : null;
   const leadsService = repos ? new LeadsService(repos) : null;
+  const documentsService = repos
+    ? new DocumentsService(repos, options.storage ?? null, options.maxUploadBytes)
+    : null;
 
   // The guard guarantees services exist whenever a handler runs; the helper
   // narrows the types without assertions.
@@ -170,4 +181,10 @@ export async function protectedRoutes(
   // Ticket 16: the leads surface (routes/leads.ts) — CRUD + the conversion
   // transaction — same guard, same every-member-manages rule.
   await app.register(leadRoutes, { leadsService });
+
+  // Ticket 17: the documents surface (routes/documents.ts) — contract
+  // metadata CRUD plus the ADDITIVE upload/download flow (sign-upload mints
+  // a short-lived signed PUT, download a signed GET; both answer 503 when
+  // storage is unconfigured) — same guard, same every-member-manages rule.
+  await app.register(documentRoutes, { documentsService });
 }

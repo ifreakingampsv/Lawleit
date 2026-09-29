@@ -3,6 +3,7 @@ import type { DbHandle } from "../db/client.js";
 import { createDrizzleRepositories } from "../services/auth/drizzle-repository.js";
 import type { AuthRepositories } from "../services/auth/repository.js";
 import { AuthService } from "../services/auth/service.js";
+import type { StorageService } from "../services/storage/service.js";
 import type { Mailer } from "../services/auth/mailer.js";
 import { authRoutes } from "./auth.js";
 import { protectedRoutes } from "./protected.js";
@@ -15,6 +16,11 @@ export type ApiRoutesOptions = {
   repositories?: AuthRepositories | null;
   mailer?: Mailer;
   cookie?: CookieAttrs;
+  /** Ticket 17: the storage binding behind the documents upload/download
+   * routes; null/absent = storage unconfigured (those routes answer 503). */
+  storage?: StorageService | null;
+  /** Ticket 17: the sign-upload size cap in bytes (default 25 MB). */
+  maxUploadBytes?: number;
 };
 
 /**
@@ -37,6 +43,12 @@ export async function apiRoutes(
   const cookie: CookieAttrs = options.cookie ?? { sameSite: "lax", secure: false };
 
   await app.register(authRoutes, { authService, cookie });
-  await app.register(protectedRoutes, { authService, repos, mailer: options.mailer });
+  await app.register(protectedRoutes, {
+    authService,
+    repos,
+    mailer: options.mailer,
+    storage: options.storage,
+    maxUploadBytes: options.maxUploadBytes,
+  });
   await app.register(healthRoutes, { db: options.db ?? null });
 }

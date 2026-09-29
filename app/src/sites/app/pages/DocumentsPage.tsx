@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { File, FileImage, FileSpreadsheet, FileText, Star } from "lucide-react";
-import { api } from "@/lib/data";
+import { api, apiMode } from "@/lib/data";
 import { useAsync, fmtDate } from "@/lib/hooks";
 import { Card, Modal, NewButton, PageHeader, Field, inputCls } from "../ui";
 import { cn } from "@/lib/utils";
@@ -16,20 +16,45 @@ export default function DocumentsPage() {
   const [folder, setFolder] = useState<string>("All");
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({ name: "", folder: "General", caseId: "", kind: "doc" });
+  const [file, setFile] = useState<File | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const folders = ["All", ...new Set((docs ?? []).map((d) => d.folder))];
   const list = (docs ?? []).filter((d) => folder === "All" || d.folder === folder);
 
   const create = async () => {
-    await api.createDocument({
-      name: form.name || "Untitled.docx",
-      folder: form.folder,
-      caseId: form.caseId || undefined,
-      kind: form.kind as DocumentFile["kind"],
-      sizeKb: Math.round(20 + Math.random() * 400),
-    });
-    setCreating(false);
-    refetch();
+    setError(null);
+    try {
+      if (file) {
+        // Real upload through the seam (ticket 17): type/size rules are
+        // enforced by the adapter (server-side in http mode), so a rejected
+        // file surfaces here as the error message below.
+        await api.uploadDocument({
+          file,
+          name: form.name || undefined,
+          folder: form.folder,
+          caseId: form.caseId || undefined,
+        });
+      } else {
+        await api.createDocument({
+          name: form.name || "Untitled.docx",
+          folder: form.folder,
+          caseId: form.caseId || undefined,
+          kind: form.kind as DocumentFile["kind"],
+          sizeKb: Math.round(20 + Math.random() * 400),
+        });
+      }
+      setFile(null);
+      setCreating(false);
+      refetch();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Upload failed");
+    }
+  };
+
+  const download = async (id: string) => {
+    const url = await api.getDocumentDownloadUrl(id);
+    window.open(url, "_blank", "noopener");
   };
 
   return (
@@ -84,6 +109,14 @@ export default function DocumentsPage() {
                   >
                     <Star className={cn("h-4 w-4", d.starred && "fill-current")} />
                   </button>
+                  {d.hasFile && (
+                    <button
+                      aria-label="Download document"
+                      data-testid="document-download"
+                      onClick={() => download(d.id)}
+                      className="text-[12px] font-semibold text-lawleit hover:underline"
+                    >Download</button>
+                  )}
                   <button
                     aria-label="Delete document"
                     onClick={async () => { await api.deleteDocument(d.id); refetch(); }}
@@ -113,9 +146,26 @@ export default function DocumentsPage() {
               </select>
             </Field>
           </div>
-          <div className="rounded-xl border-2 border-dashed border-neutral-300 p-6 text-center text-[13px] text-neutral-500">
-            Drop files here — mock upload, metadata only in this build
-          </div>
+          <label className="block cursor-pointer rounded-xl border-2 border-dashed border-neutral-300 p-6 text-center text-[13px] text-neutral-500 hover:border-lawleit/40 hover:bg-neutral-50">
+            <input
+              type="file"
+              data-testid="document-file"
+              className="hidden"
+              onChange={(e) => { setFile(e.target.files?.[0] ?? null); setError(null); }}
+            />
+            {file ? (
+              <span className="font-semibold text-lawleit">
+                {file.name} — {(file.size / 1024).toFixed(0)} KB chosen · click to change
+              </span>
+            ) : (
+              <>Choose a file — it uploads for real{apiMode === "mock" ? " (demo caps at 1 MB)" : ", max 25 MB"}</>
+            )}
+          </label>
+          {error && (
+            <p data-testid="document-error" role="alert" className="text-[12.5px] font-semibold text-red-500">
+              {error}
+            </p>
+          )}
           <button data-testid="document-save" onClick={create} className="w-full rounded-full bg-lawleit py-2.5 text-[14px] font-bold text-white hover:bg-lawleit-dark">Save document</button>
         </div>
       </Modal>
