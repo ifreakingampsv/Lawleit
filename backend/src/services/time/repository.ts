@@ -83,6 +83,18 @@ export interface TimeEntryRepository {
   findById(firmId: string, id: string): Promise<TimeEntryRow | null>;
   /** The firm's live entries, newest first (the mock/reference unshift). */
   listByFirm(firmId: string): Promise<TimeEntryRow[]>;
+  /**
+   * Ticket 13's unbilled selector: the firm's live, not-yet-invoiced entries
+   * for one case, newest first — the list an invoice builder draws lines
+   * from. Billable filtering is the caller's concern; the flag is the seam.
+   */
+  listUninvoicedByCase(firmId: string, caseId: string): Promise<TimeEntryRow[]>;
+  /**
+   * Ticket 13's flip path: sets `invoiced` on the given live entries of the
+   * firm (firm-scoped, so a cross-firm id is silently inert) and returns how
+   * many rows moved. Client patches cannot touch the flag — only this seam.
+   */
+  setInvoicedByIds(firmId: string, ids: string[], invoiced: boolean): Promise<number>;
   /** Live-row update; null when the row is missing, deleted, or another firm's. */
   update(firmId: string, id: string, patch: TimeEntryPatch): Promise<TimeEntryRow | null>;
   /** Soft delete: stamps deleted_at, the row itself stays (ADR-0003 audit). */

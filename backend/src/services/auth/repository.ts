@@ -20,6 +20,11 @@ import type { EventRepository } from "../events/repository.js";
 import type { TaskRepository } from "../tasks/repository.js";
 import type { TimeEntryRepository } from "../time/repository.js";
 import type { ExpenseRepository } from "../expenses/repository.js";
+import type {
+  InvoiceLineRepository,
+  InvoiceNumberRepository,
+  InvoiceRepository,
+} from "../invoices/repository.js";
 import type { LeadRepository, LeadStageHistoryRepository } from "../leads/repository.js";
 
 export interface FirmRow {
@@ -198,6 +203,10 @@ export interface AuthRepositories {
   /** Ticket 12: time entries and expenses ride the same aggregate and seam. */
   timeEntries: TimeEntryRepository;
   expenses: ExpenseRepository;
+  /** Ticket 13: invoices, their line items and the INV-XXXX counter ditto. */
+  invoices: InvoiceRepository;
+  invoiceLines: InvoiceLineRepository;
+  invoiceNumbers: InvoiceNumberRepository;
   /** Ticket 16: leads and their stage-history audit trail ditto. */
   leads: LeadRepository;
   leadStageHistory: LeadStageHistoryRepository;

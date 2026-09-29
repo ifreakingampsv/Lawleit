@@ -3,9 +3,11 @@ import {
   bigint,
   boolean,
   date,
+  doublePrecision,
   index,
   integer,
   jsonb,
+  numeric,
   pgTable,
   primaryKey,
   text,
@@ -21,6 +23,7 @@ import { sql } from "drizzle-orm";
  * Ticket 10 tables: cases, case_number_counters.
  * Ticket 11 tables: events, tasks.
  * Ticket 12 tables: time_entries, expenses.
+ * Ticket 13 tables: invoices, invoice_line_items, invoice_number_counters.
  * Ticket 16 tables: leads, lead_stage_history.
  *
  * Conventions (drizzle/README.md): snake_case names, uuid primary keys with
@@ -413,6 +416,156 @@ export const expenses = pgTable(
 );
 
 /**
+ * Invoices (ticket 13) — the billing documents. Column set mirrors the
+ * contract's Invoice (app/src/lib/data/types.ts) 1:1: `number` is
+ * server-assigned ("INV-XXXX" — invoice_number_counters below; the partial
+ * unique index on (firm_id, number) of live rows is the race backstop behind
+ * the counter, the cases pattern), `status` carries the contract's four-word
+ * InvoiceStatus vocabulary as text enforced in the service, and
+ * issue_date/due_date are plain `date mode:string` columns (the contract
+ * carries ISO YYYY-MM-DD days; the reference stamps issued=today and
+ * due=today+30 at create, both server-side — a client-sent value is ignored).
+ *
+ * Deliberately NO total columns: the contract's Invoice carries no
+ * totalAmount/amountPaid/balance — the client derives the total from the
+ * lines (`lines.reduce((s, l) => s + l.quantity * l.rate, 0)`, InvoicesPage),
+ * and the reference's roll-up recomputes it from the lines on every payment.
+ * The server-side computation this ticket owns lives on the line rows:
+ * invoice_line_items.amount is quantity × rate computed server-side (never
+ * client-sent), so the invoice total is SUM(line amounts) — an always-fresh
+ * integer-paise derivation ticket 14's payment roll-up reads. Storing a
+ * denormalized total would only add a drift hazard the contract never asked
+ * for.
+ *
+ * `client_id`/`case_id` are nullable FKs (the cases.client_id pattern — the
+ * model allows an invoice without either; the reference stores "" there and
+ * the API mapper renders "" for null). case_id is indexed (the ticket's FK
+ * index requirement; every invoice-listing page joins clients/cases
+ * client-side, so client_id has no server query path and no index).
+ */
+export const invoices = pgTable(
+  "invoices",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    firmId: uuid("firm_id")
+      .notNull()
+      .references(() => firms.id),
+    number: text("number").notNull(),
+    clientId: uuid("client_id").references(() => contacts.id),
+    caseId: uuid("case_id").references(() => cases.id),
+    status: text("status").notNull().default("draft"),
+    issueDate: date("issue_date", { mode: "string" }).notNull(),
+    dueDate: date("due_date", { mode: "string" }).notNull(),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("invoices_firm_id_idx").on(table.firmId),
+    index("invoices_case_id_idx").on(table.caseId),
+    uniqueIndex("invoices_firm_number_live_key")
+      .on(table.firmId, table.number)
+      .where(sql`deleted_at is null`),
+  ],
+);
+
+/**
+ * Invoice line items (ticket 13) — the lines behind an invoice. Column set
+ * mirrors the contract's InvoiceLine (types.ts) 1:1 plus two deliberate
+ * extras the API mapper whitelists out (the events.`source` seam treatment):
+ *
+ * - `amount` (bigint paise) — computed server-side as round(quantity × rate)
+ *   on every write; never client-settable. The quantity comes in hours for
+ *   time lines (minutes/60 — a repeating decimal like 10/60 whose float
+ *   product with an integer paise rate rounds to the exact real-math paise:
+ *   10/60 × ₹300.00/hr = 50000 paise), so the round is what keeps the money
+ *   integral; the invoice total is SUM(amount) with zero float exposure.
+ * - the tax columns — `tax_rate` (numeric percent) and `tax_amount` (bigint
+ *   paise), both NULLABLE with no defaults: the V2 GST seam, present from day
+ *   one so V2 tax computation needs no migration, but never written by V1
+ *   code (the contract's InvoiceLine carries no tax fields).
+ *
+ * `quantity` is `double precision`, not numeric/bigint: the contract's
+ * quantity is a JS number (hours for time lines, units otherwise) and a
+ * binary64 round-trips it byte-exact — a numeric column would re-round the
+ * stored digits and break the amount math above. `rate` is bigint paise per
+ * the baseline money convention. `kind` is the contract's three-word
+ * vocabulary (time/expense/flat) as text enforced in the service.
+ *
+ * `position` is the 0-based index the client sent the line at: same-instant
+ * inserts share one created_at and UUID tie-breaks are random, so the
+ * client's line order (what the invoice preview prints) needs an explicit
+ * sort key.
+ *
+ * Lifecycle: lines are a value set of their invoice, not independently
+ * soft-deletable rows — a patch that carries `lines` replaces the set (plain
+ * DELETE + INSERT in one transaction) and an invoice's soft delete hides its
+ * lines through the invoice join, so there is no deleted_at here (the
+ * baseline convention's soft-delete rule is for independently addressable
+ * tenant rows; these are only ever addressed through the invoice).
+ */
+export const invoiceLineItems = pgTable(
+  "invoice_line_items",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    firmId: uuid("firm_id")
+      .notNull()
+      .references(() => firms.id),
+    invoiceId: uuid("invoice_id")
+      .notNull()
+      .references(() => invoices.id),
+    position: integer("position").notNull(),
+    description: text("description").notNull().default(""),
+    quantity: doublePrecision("quantity").notNull(),
+    /** Per hour / per unit, integer paise (types.ts Paise). */
+    rate: bigint("rate", { mode: "number" }).notNull(),
+    /** Server-computed round(quantity × rate), integer paise — never client-set. */
+    amount: bigint("amount", { mode: "number" }).notNull(),
+    kind: text("kind").notNull().default("flat"),
+    /** V2 GST seam: percent; NULL until V2 tax computation writes it. */
+    taxRate: numeric("tax_rate", { precision: 6, scale: 2, mode: "number" }),
+    /** V2 GST seam: integer paise; NULL until V2 tax computation writes it. */
+    taxAmount: bigint("tax_amount", { mode: "number" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("invoice_line_items_firm_id_idx").on(table.firmId),
+    index("invoice_line_items_invoice_id_idx").on(table.invoiceId),
+  ],
+);
+
+/**
+ * Invoice number counters (ticket 13) — the case_number_counters pattern
+ * copied for "INV-XXXX" numbering, as its own table rather than a
+ * generalization of case_number_counters: the invoice sequence has no year
+ * dimension (the reference's sequence is one running per-firm count, format
+ * INV-XXXX — no YYYY component to key on), so sharing the table would force a
+ * discriminator column onto a differently-keyed sequence; two tables keep
+ * both counters' atomic upserts and audit rows independent and identical in
+ * shape. One row per firm holding the last sequence handed out; the
+ * INSERT … ON CONFLICT DO UPDATE inside the create transaction is atomic per
+ * firm (the row lock serializes concurrent creates) and never reuses a
+ * number. The composite primary key leads with firm_id, so the tenant index
+ * the conventions require is the key itself. The reference's +1044 offset is
+ * its demo-seed legacy — with no production seed to clear, sequences start at
+ * 1 (the same rationale as the case counter's +50).
+ */
+export const invoiceNumberCounters = pgTable(
+  "invoice_number_counters",
+  {
+    firmId: uuid("firm_id")
+      .notNull()
+      .references(() => firms.id),
+    lastValue: integer("last_value").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.firmId] })],
+);
+
+/**
  * Leads (ticket 16) — the business-development pipeline. Column set mirrors
  * the contract's Lead (app/src/lib/data/types.ts) 1:1: `value` is bigint
  * integer paise (the estimated matter value), `created_at` is the baseline
@@ -530,6 +683,7 @@ export const casesRelations = relations(cases, ({ one, many }) => ({
   tasks: many(tasks),
   timeEntries: many(timeEntries),
   expenses: many(expenses),
+  invoices: many(invoices),
 }));
 
 export const eventsRelations = relations(events, ({ one }) => ({
@@ -550,6 +704,18 @@ export const timeEntriesRelations = relations(timeEntries, ({ one }) => ({
 export const expensesRelations = relations(expenses, ({ one }) => ({
   firm: one(firms, { fields: [expenses.firmId], references: [firms.id] }),
   kase: one(cases, { fields: [expenses.caseId], references: [cases.id] }),
+}));
+
+export const invoicesRelations = relations(invoices, ({ one, many }) => ({
+  firm: one(firms, { fields: [invoices.firmId], references: [firms.id] }),
+  client: one(contacts, { fields: [invoices.clientId], references: [contacts.id] }),
+  kase: one(cases, { fields: [invoices.caseId], references: [cases.id] }),
+  lines: many(invoiceLineItems),
+}));
+
+export const invoiceLineItemsRelations = relations(invoiceLineItems, ({ one }) => ({
+  firm: one(firms, { fields: [invoiceLineItems.firmId], references: [firms.id] }),
+  invoice: one(invoices, { fields: [invoiceLineItems.invoiceId], references: [invoices.id] }),
 }));
 
 export const leadsRelations = relations(leads, ({ one, many }) => ({

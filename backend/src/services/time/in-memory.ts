@@ -43,6 +43,26 @@ export class InMemoryTimeEntryRepository implements TimeEntryRepository {
     return this.timeEntries.filter((t) => t.firmId === firmId && t.deletedAt === null);
   }
 
+  async listUninvoicedByCase(firmId: string, caseId: string): Promise<TimeEntryRow[]> {
+    return this.timeEntries.filter(
+      (t) =>
+        t.firmId === firmId && t.caseId === caseId && !t.invoiced && t.deletedAt === null,
+    );
+  }
+
+  async setInvoicedByIds(firmId: string, ids: string[], invoiced: boolean): Promise<number> {
+    const wanted = new Set(ids);
+    let moved = 0;
+    for (const entry of this.timeEntries) {
+      if (entry.firmId === firmId && wanted.has(entry.id) && entry.deletedAt === null) {
+        entry.invoiced = invoiced;
+        entry.updatedAt = new Date();
+        moved += 1;
+      }
+    }
+    return moved;
+  }
+
   async update(firmId: string, id: string, patch: TimeEntryPatch): Promise<TimeEntryRow | null> {
     const row = await this.findById(firmId, id);
     if (!row) return null;

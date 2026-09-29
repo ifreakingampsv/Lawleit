@@ -34,7 +34,7 @@ describe.skipIf(!process.env.DATABASE_URL)("expenses against Postgres", () => {
 
   afterEach(async () => {
     await handle.sql.unsafe(
-      "truncate table case_number_counters, cases, contacts, expenses, events, lead_stage_history, leads, tasks, time_entries, password_reset_tokens, sessions, users, firms cascade",
+      "truncate table case_number_counters, cases, contacts, expenses, events, invoice_line_items, invoice_number_counters, invoices, lead_stage_history, leads, tasks, time_entries, password_reset_tokens, sessions, users, firms cascade",
     );
   });
 
@@ -228,5 +228,43 @@ describe.skipIf(!process.env.DATABASE_URL)("expenses against Postgres", () => {
 
     const real = await expenses.create(firmId, { caseId: kase.id, amount: 500 });
     expect((await expenses.list(firmId)).map((e) => e.id)).toEqual([real.id]);
+  });
+
+  it("ticket 13's invoiced seam: the unbilled selector and the flip path are firm-scoped and drizzle-persisted", async () => {
+    const mailer = new CapturingMailer();
+    const { auth, cases, expenses } = build(mailer);
+    const a = await firmWithOwner(auth, mailer, "owner@firm-a.example");
+    const b = await firmWithOwner(auth, mailer, "owner@firm-b.example");
+    const firmA = a.registered.firm.id;
+    const firmB = b.registered.firm.id;
+
+    const caseA = await cases.create(firmA, { title: "A's Matter" });
+    const caseB = await cases.create(firmB, { title: "B's Matter" });
+    const unbilled1 = await expenses.create(firmA, { caseId: caseA.id, amount: 100 });
+    const unbilled2 = await expenses.create(firmA, { caseId: caseA.id, amount: 200 });
+    const billed = await expenses.create(firmA, { caseId: caseA.id, amount: 300 });
+    const foreign = await expenses.create(firmB, { caseId: caseB.id, amount: 400 });
+
+    // The selector: only case A's uninvoiced live expenses, newest first —
+    // the other firm's stay out even for the same case id.
+    const unbilled = await expenses.listUninvoicedByCase(firmA, caseA.id);
+    expect(unbilled.map((e) => e.id)).toEqual([billed.id, unbilled2.id, unbilled1.id]);
+    expect(await expenses.listUninvoicedByCase(firmB, caseA.id)).toEqual([]);
+    await expect(expenses.listUninvoicedByCase(firmA, "k1")).rejects.toMatchObject({
+      statusCode: 400, message: EXPENSE_CASE_MESSAGE,
+    });
+
+    // The flip path: marks exactly the named live expenses of the firm.
+    const moved = await expenses.setInvoiced(firmA, [unbilled1.id, billed.id, foreign.id], true);
+    expect(moved).toBe(2); // the cross-firm id is silently inert
+    expect(await expenses.listUninvoicedByCase(firmA, caseA.id).then((rows) => rows.map((e) => e.id)))
+      .toEqual([unbilled2.id]);
+
+    // Really persisted, and reversible (the un-mark path).
+    const rows = await handle.sql`select id, invoiced from expenses where invoiced = true`;
+    expect((rows as unknown as { id: string }[]).map((r) => r.id).sort()).toEqual([billed.id, unbilled1.id].sort());
+    expect(await expenses.setInvoiced(firmA, [unbilled1.id], false)).toBe(1);
+    expect((await expenses.listUninvoicedByCase(firmA, caseA.id)).map((e) => e.id))
+      .toEqual([unbilled2.id, unbilled1.id]);
   });
 });

@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { timeEntries } from "../../db/schema.js";
 import type { DbExecutor } from "../auth/drizzle-repository.js";
 import type {
@@ -43,6 +43,37 @@ export class DrizzleTimeEntryRepository implements TimeEntryRepository {
       // Newest first (the mock/reference unshift); id breaks ties between
       // rows sharing one timestamp.
       .orderBy(desc(timeEntries.createdAt), desc(timeEntries.id));
+  }
+
+  async listUninvoicedByCase(firmId: string, caseId: string): Promise<TimeEntryRow[]> {
+    return this.exec
+      .select()
+      .from(timeEntries)
+      .where(
+        and(
+          eq(timeEntries.firmId, firmId),
+          eq(timeEntries.caseId, caseId),
+          eq(timeEntries.invoiced, false),
+          liveEntry(),
+        ),
+      )
+      .orderBy(desc(timeEntries.createdAt), desc(timeEntries.id));
+  }
+
+  async setInvoicedByIds(firmId: string, ids: string[], invoiced: boolean): Promise<number> {
+    if (ids.length === 0) return 0;
+    const rows = await this.exec
+      .update(timeEntries)
+      .set({ invoiced, updatedAt: new Date() })
+      .where(
+        and(
+          eq(timeEntries.firmId, firmId),
+          inArray(timeEntries.id, ids),
+          liveEntry(),
+        ),
+      )
+      .returning({ id: timeEntries.id });
+    return rows.length;
   }
 
   async update(firmId: string, id: string, patch: TimeEntryPatch): Promise<TimeEntryRow | null> {

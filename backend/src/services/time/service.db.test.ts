@@ -34,7 +34,7 @@ describe.skipIf(!process.env.DATABASE_URL)("time entries against Postgres", () =
 
   afterEach(async () => {
     await handle.sql.unsafe(
-      "truncate table case_number_counters, cases, contacts, expenses, events, lead_stage_history, leads, tasks, time_entries, password_reset_tokens, sessions, users, firms cascade",
+      "truncate table case_number_counters, cases, contacts, expenses, events, invoice_line_items, invoice_number_counters, invoices, lead_stage_history, leads, tasks, time_entries, password_reset_tokens, sessions, users, firms cascade",
     );
   });
 
@@ -234,5 +234,47 @@ describe.skipIf(!process.env.DATABASE_URL)("time entries against Postgres", () =
 
     const real = await time.create(firmId, { caseId: kase.id, minutes: 60 });
     expect((await time.list(firmId)).map((e) => e.id)).toEqual([real.id]);
+  });
+
+  it("ticket 13's invoiced seam: the unbilled selector and the flip path are firm-scoped and drizzle-persisted", async () => {
+    const mailer = new CapturingMailer();
+    const { auth, cases, time } = build(mailer);
+    const a = await firmWithOwner(auth, mailer, "owner@firm-a.example");
+    const b = await firmWithOwner(auth, mailer, "owner@firm-b.example");
+    const firmA = a.registered.firm.id;
+    const firmB = b.registered.firm.id;
+
+    const caseA = await cases.create(firmA, { title: "A's Matter" });
+    const caseB = await cases.create(firmB, { title: "B's Matter" });
+    const unbilled1 = await time.create(firmA, { caseId: caseA.id, minutes: 60 });
+    const unbilled2 = await time.create(firmA, { caseId: caseA.id, minutes: 30 });
+    const billed = await time.create(firmA, { caseId: caseA.id, minutes: 15 });
+    const otherCase = await time.create(firmA, { caseId: (await cases.create(firmA, { title: "Other Matter" })).id });
+    const foreign = await time.create(firmB, { caseId: caseB.id, minutes: 45 });
+
+    // The selector: only case A's uninvoiced live entries, newest first —
+    // the other case's entry and the other firm's entry stay out.
+    const unbilled = await time.listUninvoicedByCase(firmA, caseA.id);
+    expect(unbilled.map((e) => e.id)).toEqual([billed.id, unbilled2.id, unbilled1.id]);
+    expect(await time.listUninvoicedByCase(firmB, caseA.id)).toEqual([]);
+    // A malformed caseId is the create path's 400; an unknown one is empty.
+    await expect(time.listUninvoicedByCase(firmA, "k1")).rejects.toMatchObject({
+      statusCode: 400, message: TIME_CASE_MESSAGE,
+    });
+    expect(await time.listUninvoicedByCase(firmA, "00000000-0000-4000-8000-00000000dead")).toEqual([]);
+
+    // The flip path: marks exactly the named live entries of the firm.
+    const moved = await time.setInvoiced(firmA, [unbilled1.id, billed.id, foreign.id], true);
+    expect(moved).toBe(2); // the cross-firm id is silently inert
+    expect(await time.listUninvoicedByCase(firmA, caseA.id).then((rows) => rows.map((e) => e.id)))
+      .toEqual([unbilled2.id]);
+
+    // Really persisted, and reversible (the un-mark path).
+    const rows = await handle.sql`select id, invoiced from time_entries where invoiced = true`;
+    expect((rows as unknown as { id: string }[]).map((r) => r.id).sort()).toEqual([billed.id, unbilled1.id].sort());
+    expect(await time.setInvoiced(firmA, [unbilled1.id], false)).toBe(1);
+    expect((await time.listUninvoicedByCase(firmA, caseA.id)).map((e) => e.id))
+      .toEqual([unbilled2.id, unbilled1.id]);
+    expect(otherCase.invoiced).toBe(false);
   });
 });

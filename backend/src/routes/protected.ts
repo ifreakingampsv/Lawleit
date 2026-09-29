@@ -17,6 +17,8 @@ import { TimeEntriesService } from "../services/time/service.js";
 import { timeRoutes } from "./time.js";
 import { ExpensesService } from "../services/expenses/service.js";
 import { expenseRoutes } from "./expenses.js";
+import { InvoicesService } from "../services/invoices/service.js";
+import { invoiceRoutes } from "./invoices.js";
 import { LeadsService } from "../services/leads/service.js";
 import { leadRoutes } from "./leads.js";
 import { DB_REQUIRED, extractToken, requireAuth } from "./requestAuth.js";
@@ -91,6 +93,7 @@ export async function protectedRoutes(
   const tasksService = repos ? new TasksService(repos) : null;
   const timeEntriesService = repos ? new TimeEntriesService(repos) : null;
   const expensesService = repos ? new ExpensesService(repos) : null;
+  const invoicesService = repos ? new InvoicesService(repos) : null;
   const leadsService = repos ? new LeadsService(repos) : null;
 
   // The guard guarantees services exist whenever a handler runs; the helper
@@ -141,6 +144,11 @@ export async function protectedRoutes(
   // routes/expenses.ts), same guard, same every-member-manages rule.
   await app.register(timeRoutes, { timeEntriesService });
   await app.register(expenseRoutes, { expensesService });
+
+  // Ticket 13: the invoices surface (routes/invoices.ts) — the money chain's
+  // head: server-assigned INV-XXXX numbers and server-computed line math —
+  // same guard, same every-member-manages rule.
+  await app.register(invoiceRoutes, { invoicesService });
 
   // Ticket 16: the leads surface (routes/leads.ts) — CRUD + the conversion
   // transaction — same guard, same every-member-manages rule.

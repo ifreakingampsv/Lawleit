@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { expenses } from "../../db/schema.js";
 import type { DbExecutor } from "../auth/drizzle-repository.js";
 import type {
@@ -43,6 +43,31 @@ export class DrizzleExpenseRepository implements ExpenseRepository {
       // Newest first (the mock/reference unshift); id breaks ties between
       // rows sharing one timestamp.
       .orderBy(desc(expenses.createdAt), desc(expenses.id));
+  }
+
+  async listUninvoicedByCase(firmId: string, caseId: string): Promise<ExpenseRow[]> {
+    return this.exec
+      .select()
+      .from(expenses)
+      .where(
+        and(
+          eq(expenses.firmId, firmId),
+          eq(expenses.caseId, caseId),
+          eq(expenses.invoiced, false),
+          liveExpense(),
+        ),
+      )
+      .orderBy(desc(expenses.createdAt), desc(expenses.id));
+  }
+
+  async setInvoicedByIds(firmId: string, ids: string[], invoiced: boolean): Promise<number> {
+    if (ids.length === 0) return 0;
+    const rows = await this.exec
+      .update(expenses)
+      .set({ invoiced, updatedAt: new Date() })
+      .where(and(eq(expenses.firmId, firmId), inArray(expenses.id, ids), liveExpense()))
+      .returning({ id: expenses.id });
+    return rows.length;
   }
 
   async update(firmId: string, id: string, patch: ExpensePatch): Promise<ExpenseRow | null> {

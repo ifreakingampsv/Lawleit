@@ -43,6 +43,26 @@ export class InMemoryExpenseRepository implements ExpenseRepository {
     return this.expenses.filter((e) => e.firmId === firmId && e.deletedAt === null);
   }
 
+  async listUninvoicedByCase(firmId: string, caseId: string): Promise<ExpenseRow[]> {
+    return this.expenses.filter(
+      (e) =>
+        e.firmId === firmId && e.caseId === caseId && !e.invoiced && e.deletedAt === null,
+    );
+  }
+
+  async setInvoicedByIds(firmId: string, ids: string[], invoiced: boolean): Promise<number> {
+    const wanted = new Set(ids);
+    let moved = 0;
+    for (const expense of this.expenses) {
+      if (expense.firmId === firmId && wanted.has(expense.id) && expense.deletedAt === null) {
+        expense.invoiced = invoiced;
+        expense.updatedAt = new Date();
+        moved += 1;
+      }
+    }
+    return moved;
+  }
+
   async update(firmId: string, id: string, patch: ExpensePatch): Promise<ExpenseRow | null> {
     const row = await this.findById(firmId, id);
     if (!row) return null;

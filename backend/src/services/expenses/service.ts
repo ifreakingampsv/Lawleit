@@ -199,4 +199,32 @@ export class ExpensesService {
     const deleted = await this.repos.expenses.delete(firmId, id);
     if (!deleted) throw new HttpError(404, "Expense not found");
   }
+
+  /**
+   * Ticket 13's unbilled selector (the handoff's listUninvoicedByCase): the
+   * firm's live, not-yet-invoiced expenses for one case, newest first — the
+   * list an invoice builder draws its expense lines from. A malformed caseId
+   * is the same 400 the create path uses; a well-formed unknown (or other
+   * firm's) case is simply an empty list — a selector leaks nothing.
+   */
+  async listUninvoicedByCase(firmId: string, caseId: string): Promise<ApiExpense[]> {
+    if (!UUID_PATTERN.test(caseId)) throw new HttpError(400, EXPENSE_CASE_MESSAGE);
+    const rows = await this.repos.expenses.listUninvoicedByCase(firmId, caseId);
+    return rows.map(toApiExpense);
+  }
+
+  /**
+   * Ticket 13's flip path (the handoff's markInvoiced): stamps `invoiced` on
+   * the given expenses of the firm. This is the ONLY route to the flag — it
+   * is server-managed end to end (never client-writable, the create path
+   * stamps false), so an invoice flow marks expenses through here and a
+   * reversal un-marks them here too. Returns the number of live expenses
+   * moved (cross-firm and soft-deleted ids are silently inert).
+   */
+  async setInvoiced(firmId: string, ids: string[], invoiced: boolean): Promise<number> {
+    for (const id of ids) {
+      if (!UUID_PATTERN.test(id)) throw new HttpError(400, "Invalid expense id");
+    }
+    return this.repos.expenses.setInvoicedByIds(firmId, ids, invoiced);
+  }
 }

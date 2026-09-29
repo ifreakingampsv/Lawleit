@@ -11,6 +11,12 @@ import { InMemoryTimeEntryRepository } from "../time/in-memory.js";
 import type { TimeEntryRow } from "../time/repository.js";
 import { InMemoryExpenseRepository } from "../expenses/in-memory.js";
 import type { ExpenseRow } from "../expenses/repository.js";
+import {
+  InMemoryInvoiceLineRepository,
+  InMemoryInvoiceNumberRepository,
+  InMemoryInvoiceRepository,
+} from "../invoices/in-memory.js";
+import type { InvoiceLineRow, InvoiceRow } from "../invoices/repository.js";
 import { InMemoryLeadRepository, InMemoryLeadStageHistoryRepository } from "../leads/in-memory.js";
 import type { LeadRow, LeadStageHistoryRow } from "../leads/repository.js";
 import type {
@@ -192,6 +198,10 @@ interface Store {
   tasks: TaskRow[];
   timeEntries: TimeEntryRow[];
   expenses: ExpenseRow[];
+  invoices: InvoiceRow[];
+  invoiceLines: InvoiceLineRow[];
+  /** Keyed by firmId — the in-memory twin of invoice_number_counters. */
+  invoiceNumbers: Map<string, number>;
   leads: LeadRow[];
   leadStageHistory: LeadStageHistoryRow[];
 }
@@ -217,6 +227,9 @@ export function inMemoryAuthRepositories(): AuthRepositories {
     tasks: [],
     timeEntries: [],
     expenses: [],
+    invoices: [],
+    invoiceLines: [],
+    invoiceNumbers: new Map(),
     leads: [],
     leadStageHistory: [],
   };
@@ -232,6 +245,9 @@ export function inMemoryAuthRepositories(): AuthRepositories {
     tasks: new InMemoryTaskRepository(store.tasks),
     timeEntries: new InMemoryTimeEntryRepository(store.timeEntries),
     expenses: new InMemoryExpenseRepository(store.expenses),
+    invoices: new InMemoryInvoiceRepository(store.invoices),
+    invoiceLines: new InMemoryInvoiceLineRepository(store.invoices, store.invoiceLines),
+    invoiceNumbers: new InMemoryInvoiceNumberRepository(store.invoiceNumbers),
     leads: new InMemoryLeadRepository(store.leads),
     leadStageHistory: new InMemoryLeadStageHistoryRepository(store.leadStageHistory),
     async transaction(work) {
