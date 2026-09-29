@@ -5,6 +5,7 @@ import {
   date,
   index,
   integer,
+  jsonb,
   pgTable,
   primaryKey,
   text,
@@ -20,6 +21,7 @@ import { sql } from "drizzle-orm";
  * Ticket 10 tables: cases, case_number_counters.
  * Ticket 11 tables: events, tasks.
  * Ticket 12 tables: time_entries, expenses.
+ * Ticket 16 tables: leads, lead_stage_history.
  *
  * Conventions (drizzle/README.md): snake_case names, uuid primary keys with
  * gen_random_uuid() defaults, firm_id uuid not null + index on every tenant
@@ -410,6 +412,89 @@ export const expenses = pgTable(
   ],
 );
 
+/**
+ * Leads (ticket 16) — the business-development pipeline. Column set mirrors
+ * the contract's Lead (app/src/lib/data/types.ts) 1:1: `value` is bigint
+ * integer paise (the estimated matter value), `created_at` is the baseline
+ * timestamptz stamp the API mapper collapses to its UTC date part (the
+ * reference stamps `today()` — an ISO day — into the contract's createdAt),
+ * and stage/source live as text with the contract's vocabularies enforced in
+ * the service.
+ *
+ * `activity` is the contract's `activity: {at, text}[]` log, stored as jsonb
+ * (the contract makes the server responsible for appending to it on stage
+ * moves and conversion — see the leads service). The reference instead lets
+ * the client overwrite the array via Object.assign; the production backend
+ * treats it as server-managed, so the entry order is newest-first
+ * consistently (the reference's conversion entry is also unshifted).
+ *
+ * `converted_case_id` / `converted_contact_id` are nullable links stamped by
+ * the conversion transaction — DB-only traceability the contract's Lead shape
+ * does not carry, so the API mapper whitelists them out (the events.`source`
+ * seam treatment). No FK ON DELETE action: every entity soft-deletes, which
+ * keeps referenced rows alive. No unique-ish business fields → no partial
+ * unique indexes (the contacts pattern).
+ */
+export const leads = pgTable(
+  "leads",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    firmId: uuid("firm_id")
+      .notNull()
+      .references(() => firms.id),
+    name: text("name").notNull(),
+    email: text("email").notNull().default(""),
+    phone: text("phone").notNull().default(""),
+    source: text("source").notNull().default("website"),
+    stage: text("stage").notNull().default("new"),
+    practiceArea: text("practice_area").notNull().default("General"),
+    value: bigint("value", { mode: "number" }).notNull().default(0),
+    notes: text("notes"),
+    activity: jsonb("activity").$type<{ at: string; text: string }[]>().notNull().default(sql`'[]'::jsonb`),
+    convertedCaseId: uuid("converted_case_id").references(() => cases.id),
+    convertedContactId: uuid("converted_contact_id").references(() => contacts.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [index("leads_firm_id_idx").on(table.firmId)],
+);
+
+/**
+ * Lead stage history (ticket 16) — the relational audit trail behind the
+ * contract's "stage moves append to `activity`": one row per actual stage
+ * change (a patch that sends the current stage records nothing), written by
+ * the leads service inside the same transaction as the move. `activity` is
+ * the client-facing log; this table is the queryable record (per-lead funnel
+ * reporting, cycle times) that outlives the jsonb's display purpose.
+ *
+ * Append-only: rows are never updated or deleted, so there is no updated_at/
+ * deleted_at — `at` is both the event time and the row's stamp (the same
+ * instant the service passes to the activity entry). `changed_by` has no FK
+ * on purpose — the cases.lead_attorney_id pattern for cross-entity soft
+ * links (existence is the firm roster's concern).
+ */
+export const leadStageHistory = pgTable(
+  "lead_stage_history",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    firmId: uuid("firm_id")
+      .notNull()
+      .references(() => firms.id),
+    leadId: uuid("lead_id")
+      .notNull()
+      .references(() => leads.id),
+    fromStage: text("from_stage").notNull(),
+    toStage: text("to_stage").notNull(),
+    changedBy: uuid("changed_by").notNull(),
+    at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("lead_stage_history_firm_id_idx").on(table.firmId),
+    index("lead_stage_history_lead_id_idx").on(table.leadId),
+  ],
+);
+
 export const firmsRelations = relations(firms, ({ many }) => ({
   users: many(users),
   sessions: many(sessions),
@@ -465,4 +550,16 @@ export const timeEntriesRelations = relations(timeEntries, ({ one }) => ({
 export const expensesRelations = relations(expenses, ({ one }) => ({
   firm: one(firms, { fields: [expenses.firmId], references: [firms.id] }),
   kase: one(cases, { fields: [expenses.caseId], references: [cases.id] }),
+}));
+
+export const leadsRelations = relations(leads, ({ one, many }) => ({
+  firm: one(firms, { fields: [leads.firmId], references: [firms.id] }),
+  convertedCase: one(cases, { fields: [leads.convertedCaseId], references: [cases.id] }),
+  convertedContact: one(contacts, { fields: [leads.convertedContactId], references: [contacts.id] }),
+  stageHistory: many(leadStageHistory),
+}));
+
+export const leadStageHistoryRelations = relations(leadStageHistory, ({ one }) => ({
+  firm: one(firms, { fields: [leadStageHistory.firmId], references: [firms.id] }),
+  lead: one(leads, { fields: [leadStageHistory.leadId], references: [leads.id] }),
 }));

@@ -27,7 +27,7 @@ describe.skipIf(!process.env.DATABASE_URL)("user management against Postgres", (
       // cases/case_number_counters hang off firms (ticket 10); events/tasks
       // hang off firms/cases (ticket 11) — cascade would take them anyway;
       // naming them keeps the wipe explicit.
-      "truncate table cases, case_number_counters, contacts, expenses, events, tasks, time_entries, password_reset_tokens, sessions, users, firms cascade",
+      "truncate table case_number_counters, cases, contacts, expenses, events, lead_stage_history, leads, tasks, time_entries, password_reset_tokens, sessions, users, firms cascade",
     );
   });
 

@@ -10,6 +10,10 @@ import { DrizzleEventRepository } from "../events/drizzle.js";
 import { DrizzleTaskRepository } from "../tasks/drizzle.js";
 import { DrizzleTimeEntryRepository } from "../time/drizzle.js";
 import { DrizzleExpenseRepository } from "../expenses/drizzle.js";
+import {
+  DrizzleLeadRepository,
+  DrizzleLeadStageHistoryRepository,
+} from "../leads/drizzle.js";
 import type {
   AuthRepositories,
   FirmPatch,
@@ -235,6 +239,8 @@ export function reposOnExecutor(exec: DbExecutor): AuthRepositories {
     tasks: new DrizzleTaskRepository(exec),
     timeEntries: new DrizzleTimeEntryRepository(exec),
     expenses: new DrizzleExpenseRepository(exec),
+    leads: new DrizzleLeadRepository(exec),
+    leadStageHistory: new DrizzleLeadStageHistoryRepository(exec),
     transaction: () => {
       throw new Error("transaction() is only available on the root repository set");
     },
