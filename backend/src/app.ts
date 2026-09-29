@@ -8,6 +8,7 @@ import { healthRoutes } from "./routes/health.js";
 import { HttpError } from "./services/httpError.js";
 import type { AuthRepositories } from "./services/auth/repository.js";
 import type { Mailer } from "./services/auth/mailer.js";
+import { createEmailDelivery } from "./services/email/mailer.js";
 import { createS3Storage } from "./services/storage/s3.js";
 import type { StorageService } from "./services/storage/service.js";
 
@@ -37,7 +38,15 @@ export async function buildApp(
   // The pool is lazy (no TCP until the first query), so opening it here never
   // touches the network; with no DATABASE_URL the API simply runs stateless.
   const db = config.databaseUrl ? getDb(config.databaseUrl) : null;
+
+  // Transactional email (ticket 18): with a database, the outbox pipeline is
+  // the Mailer binding (durable rows + immediate drain + retrying worker);
+  // stateless boots keep the plain ConsoleMailer. An explicitly bound
+  // deps.mailer (tests) always wins. stop() clears the worker's interval in
+  // the same onClose sweep that ends the pool (graceful shutdown).
+  const email = createEmailDelivery(config.email, db);
   app.addHook("onClose", async () => {
+    email.stop();
     await closeDb();
   });
 
@@ -90,7 +99,7 @@ export async function buildApp(
     prefix: "/api/v1",
     db,
     repositories: deps.repositories,
-    mailer: deps.mailer,
+    mailer: deps.mailer !== undefined ? deps.mailer : email.mailer,
     cookie: { sameSite: config.cookieSameSite, secure: config.cookieSecure },
     storage,
     maxUploadBytes: config.storage?.maxUploadBytes,
@@ -98,6 +107,10 @@ export async function buildApp(
   // The reference backend also serves /health prefixless; the smoke suite and
   // the vite proxy rely on both forms.
   await app.register(healthRoutes, { db });
+
+  // The retry worker ticks every 30s and drains immediately on enqueue;
+  // start here so a restart also drains leftovers a previous process left.
+  email.start();
 
   return app;
 }

@@ -28,7 +28,7 @@ describe.skipIf(!process.env.DATABASE_URL)("auth repositories against Postgres",
     await handle.sql.unsafe(
       // events/tasks reference firms/cases (ticket 11) — cascade would take
       // them anyway; naming them keeps the wipe explicit.
-      "truncate table case_number_counters, cases, contacts, documents, expenses, events, invoice_line_items, invoice_number_counters, invoices, lead_stage_history, leads, payments, tasks, time_entries, password_reset_tokens, sessions, trust_transactions, users, firms cascade",
+      "truncate table case_number_counters, cases, contacts, documents, email_outbox, expenses, events, invoice_line_items, invoice_number_counters, invoices, lead_stage_history, leads, payments, tasks, time_entries, password_reset_tokens, sessions, trust_transactions, users, firms cascade",
     );
   });
 

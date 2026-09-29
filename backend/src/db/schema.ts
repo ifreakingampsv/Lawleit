@@ -29,6 +29,7 @@ import { sql } from "drizzle-orm";
  * Ticket 15 table: trust_transactions.
  * Ticket 16 tables: leads, lead_stage_history.
  * Ticket 17 table: documents.
+ * Ticket 18 table: email_outbox.
  *
  * Conventions (drizzle/README.md): snake_case names, uuid primary keys with
  * gen_random_uuid() defaults, firm_id uuid not null + index on every tenant
@@ -833,6 +834,57 @@ export const documents = pgTable(
   ],
 );
 
+/**
+ * Email outbox (ticket 18) — the durable queue behind transactional email
+ * (password resets, user invites; invoice/reminder mail is V2). The auth
+ * services write here through the Mailer seam and a small in-process worker
+ * (services/email/worker.ts) drains it: send now, retry with exponential
+ * backoff, poison after repeated failures.
+ *
+ * Deliberate deltas from the tenant-table conventions:
+ *
+ * - `firm_id` is a NULLABLE soft link (no FK, the lead_attorney_id pattern):
+ *   the outbox is operational data addressed by the recipient's email, and
+ *   the send machinery (the worker) runs without firm context — the link is
+ *   informational (support/debug: "what did we mail firm X") and must never
+ *   constrain or reject a send.
+ * - NO soft delete (no deleted_at): the outbox is operational data, not
+ *   tenant-addressable content — rows are terminal on send or poison, and
+ *   pruning old terminal rows is a maintenance concern, not a feature.
+ *
+ * `kind` is the V1 vocabulary (reset|invite) as text enforced in the email
+ * service; `status` is pending|sent|failed. `available_at` (default now) is
+ * the backoff clock the worker's due query reads; `(status, available_at)` is
+ * indexed because that query is the table's only hot path. No secrets: the
+ * body carries a single-use token URL, never the token hash material (that
+ * lives in password_reset_tokens only).
+ */
+export const emailOutbox = pgTable(
+  "email_outbox",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    /** Soft link to firms — informational only, see above. */
+    firmId: uuid("firm_id"),
+    toEmail: text("to_email").notNull(),
+    subject: text("subject").notNull(),
+    bodyText: text("body_text").notNull(),
+    bodyHtml: text("body_html"),
+    kind: text("kind").notNull().default("reset"),
+    status: text("status").notNull().default("pending"),
+    attempts: integer("attempts").notNull().default(0),
+    lastError: text("last_error"),
+    /** Backoff clock: the row becomes drainable when available_at <= now(). */
+    availableAt: timestamp("available_at", { withTimezone: true }).notNull().defaultNow(),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("email_outbox_firm_id_idx").on(table.firmId),
+    index("email_outbox_due_idx").on(table.status, table.availableAt),
+  ],
+);
+
 export const firmsRelations = relations(firms, ({ many }) => ({
   users: many(users),
   sessions: many(sessions),
@@ -930,4 +982,8 @@ export const leadStageHistoryRelations = relations(leadStageHistory, ({ one }) =
 export const documentsRelations = relations(documents, ({ one }) => ({
   firm: one(firms, { fields: [documents.firmId], references: [firms.id] }),
   kase: one(cases, { fields: [documents.caseId], references: [cases.id] }),
+}));
+
+export const emailOutboxRelations = relations(emailOutbox, ({ one }) => ({
+  firm: one(firms, { fields: [emailOutbox.firmId], references: [firms.id] }),
 }));

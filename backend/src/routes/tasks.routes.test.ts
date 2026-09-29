@@ -40,6 +40,7 @@ const testConfig: AppConfig = {
   databaseUrl: null,
   cookieSameSite: "lax",
   cookieSecure: false,
+  email: { from: "Lawleit <test@lawleit.example>", resendApiKey: null, baseUrl: "http://localhost:5173" },
 };
 
 interface FirmContext {

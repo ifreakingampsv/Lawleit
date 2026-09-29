@@ -175,6 +175,7 @@ export class AuthService {
       to: user.email,
       token,
       expiresAt: expiresAt.toISOString(),
+      firmId: user.firmId,
     });
   }
 

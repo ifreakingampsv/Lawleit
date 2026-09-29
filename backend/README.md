@@ -77,7 +77,7 @@ token scheme decision is recorded in
   holds an unguessable unset password; the password-reset flow sets the first
   real one. Reset tokens are single-use, expire after one hour, and are stored
   only as SHA-256 hashes; delivery goes through the `Mailer` interface
-  (`ConsoleMailer` stub logs the link — ticket 18 replaces it).
+  (ticket 18's outbox pipeline — see "Transactional email" below).
 - **Routes** beyond the contract table: `POST /auth/password-reset` (request)
   and `POST /auth/password-reset/consume` (set new password + revoke all
   sessions) — ticket-07 additions used by the reset flow, not wired into the
@@ -109,6 +109,58 @@ bind a deterministic in-memory fake.
   own `firms/<firmId>/` prefix); `GET /documents/:id/download` returns a
   short-lived signed GET after the permission check. Delete removes the
   metadata (soft) and drops the object best-effort.
+
+## Transactional email (production backend, ticket 18)
+
+Password-reset and user-invite emails (the V1 minimal set — invoice/reminder
+mail is V2) send through Resend, with every message recorded durably in the
+`email_outbox` table (migration 0010) and drained by a small in-process
+worker (`src/services/email/worker.ts`):
+
+- **Flow (enqueue-then-drain-immediately):** the auth services call the same
+  `Mailer` interface as before; the binding (`OutboxMailer`) writes a pending
+  row FIRST — so a failure never loses the message — then drains inline so
+  delivery is immediate. A failed send retries from the table: the worker
+  ticks every 30s (plus the immediate drain on enqueue), backs off
+  exponentially (`available_at` = now + 2^attempts minutes, capped at 1
+  hour), and after 8 attempts marks the row `failed` and logs it loudly
+  (`POISON`). The interval is cleared on graceful shutdown (`app.onClose`).
+- **Provider:** a dependency-free typed fetch client for Resend's
+  `POST https://api.resend.com/emails` (`src/services/email/resend.ts`) —
+  no SDK. With `RESEND_API_KEY` unset the "sender" is the console: the link
+  is printed in the API log (the same dev handoff as the old stub) and the
+  send is still recorded in the outbox, so flipping to real delivery is
+  purely an env change.
+- **Templates** (`src/services/email/templates.ts`): simple, branded
+  (Lawleit violet header), English — reset and invite share the
+  `/reset-password?token=…` link (an invite IS the reset machinery; the
+  consume route sets the first password). Link base URL: `APP_BASE_URL`.
+- **Env** (all optional): `RESEND_API_KEY` (unset = console sender),
+  `EMAIL_FROM` (default `Lawleit <onboarding@resend.dev>`, Resend's test
+  sender — delivers only to the account owner's own address), and
+  `APP_BASE_URL` (default `http://localhost:5173`). Full owner steps:
+  `backend/.env.example`.
+- **Stateless boots** (no `DATABASE_URL`) keep the plain `ConsoleMailer` —
+  there is no table to record into.
+
+### Owner steps (once a Resend account exists)
+
+1. Sign up at resend.com → **API Keys → Create API Key** (full access).
+2. Add to `backend/.env`:
+   ```
+   RESEND_API_KEY=re_xxxxxxxxxxxx
+   EMAIL_FROM=Lawleit <onboarding@resend.dev>
+   APP_BASE_URL=<the deployed frontend base URL>
+   ```
+3. Restart the API. Send yourself a test: request a password reset for your
+   own account (or invite a user with your own email — the test sender only
+   delivers to the Resend account's address) and confirm the email arrives
+   with a working link; `email_outbox` should show the row `sent`.
+4. Before production launch: add your sending domain under **Resend →
+   Domains**, add the DNS records it shows (SPF + DKIM), and switch
+   `EMAIL_FROM` to it (e.g. `Lawleit <notifications@lawleit.in>`). Until the
+   domain is verified, Resend rejects sends to other addresses with a 403 —
+   the worker will retry and eventually log the row as POISON.
 
 ## Tests
 

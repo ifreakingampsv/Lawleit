@@ -109,7 +109,12 @@ export class UserService {
         });
         return row;
       });
-      await this.mailer.sendUserInvite({ to: email, token, expiresAt: expiresAt.toISOString() });
+      await this.mailer.sendUserInvite({
+        to: email,
+        token,
+        expiresAt: expiresAt.toISOString(),
+        firmId: actor.firmId,
+      });
       return toApiUser(user);
     } catch (error) {
       // Raced duplicate (the partial unique index fires between our check and

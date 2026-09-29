@@ -53,6 +53,22 @@ const envSchema = z.object({
   S3_ACCESS_KEY_ID: z.string().trim().optional(),
   S3_SECRET_ACCESS_KEY: z.string().trim().optional(),
   S3_MAX_UPLOAD_MB: z.coerce.number().int().min(1).max(1024).default(25),
+  // Ticket 18 — transactional email. All three variables are OPTIONAL: with
+  // RESEND_API_KEY unset the delivery sender is a console logger (the link is
+  // printed — dev handoff) and with no DATABASE_URL there is no outbox at all
+  // (plain ConsoleMailer). The outbox + worker activate with the database;
+  // Resend activates purely by setting the key — no code path changes.
+  RESEND_API_KEY: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+    z.string().trim().optional(),
+  ),
+  // From envelope for Resend. The default is Resend's test sender, which works
+  // for development (delivers to the account owner's own address); production
+  // must set a verified domain, e.g. "Lawleit <notifications@lawleit.in>".
+  EMAIL_FROM: z.string().trim().min(1).default("Lawleit <onboarding@resend.dev>"),
+  // Base URL for the links inside email bodies (reset/invite). Frontend base,
+  // not the API base — links open the app's /reset-password route.
+  APP_BASE_URL: z.string().trim().min(1).default("http://localhost:5173"),
 });
 
 /** Object-storage connection (ticket 17) — see config.ts S3_* notes. */
@@ -67,6 +83,16 @@ export interface StorageConfig {
   maxUploadBytes: number;
 }
 
+/** Email delivery (ticket 18) — see config.ts RESEND_API_KEY notes. */
+export interface EmailConfig {
+  /** From envelope, e.g. "Lawleit <onboarding@resend.dev>". */
+  from: string;
+  /** Null when RESEND_API_KEY is unset — the console sender is used instead. */
+  resendApiKey: string | null;
+  /** Base URL for links inside email bodies. */
+  baseUrl: string;
+}
+
 export interface AppConfig {
   port: number;
   corsOrigins: string[];
@@ -76,6 +102,8 @@ export interface AppConfig {
   cookieSecure: boolean;
   /** Null when the S3_* variables are unset — storage routes answer 503. */
   storage?: StorageConfig | null;
+  /** Ticket 18: email delivery knobs (from/sender key/link base URL). */
+  email: EmailConfig;
 }
 
 /**
@@ -95,6 +123,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   }
   const { PORT, CORS_ORIGINS, SESSION_SECRET, DATABASE_URL, COOKIE_SAMESITE, COOKIE_SECURE } =
     parsed.data;
+  const email: EmailConfig = {
+    from: parsed.data.EMAIL_FROM,
+    resendApiKey: parsed.data.RESEND_API_KEY ?? null,
+    baseUrl: parsed.data.APP_BASE_URL,
+  };
 
   // Object storage: all five variables or none (a partial set fails boot
   // naming the missing ones — the operator fixes the deployment in one read).
@@ -134,5 +167,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     cookieSameSite: COOKIE_SAMESITE,
     cookieSecure: COOKIE_SECURE,
     storage,
+    email,
   };
 }

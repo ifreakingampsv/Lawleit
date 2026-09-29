@@ -20,6 +20,11 @@ describe("loadConfig", () => {
       cookieSameSite: "lax",
       cookieSecure: false,
       storage: null,
+      email: {
+        from: "Lawleit <onboarding@resend.dev>",
+        resendApiKey: null,
+        baseUrl: "http://localhost:5173",
+      },
     });
   });
 
@@ -96,5 +101,36 @@ describe("loadConfig", () => {
     };
     expect(() => loadConfig(partial)).toThrow(/S3_REGION, S3_BUCKET, S3_SECRET_ACCESS_KEY/);
     expect(() => loadConfig(partial)).toThrow(/see backend\/\.env\.example/);
+  });
+
+  // Ticket 18: the email knobs are optional — no key means the console
+  // sender (behavior identical to the stub era), and a blank string counts
+  // as unset like DATABASE_URL does.
+  it("treats the email group as optional (console sender, default from/base URL)", () => {
+    const config = loadConfig({ SESSION_SECRET: "s3cret" });
+    expect(config.email).toEqual({
+      from: "Lawleit <onboarding@resend.dev>",
+      resendApiKey: null,
+      baseUrl: "http://localhost:5173",
+    });
+  });
+
+  it("parses RESEND_API_KEY, EMAIL_FROM and APP_BASE_URL when set", () => {
+    const config = loadConfig({
+      SESSION_SECRET: "s3cret",
+      RESEND_API_KEY: " re_test_123 ",
+      EMAIL_FROM: "Lawleit <notifications@lawleit.in>",
+      APP_BASE_URL: "https://app.lawleit.in/",
+    });
+    expect(config.email).toEqual({
+      from: "Lawleit <notifications@lawleit.in>",
+      resendApiKey: "re_test_123",
+      baseUrl: "https://app.lawleit.in/",
+    });
+  });
+
+  it("treats a blank RESEND_API_KEY as unset (console sender, not an empty bearer token)", () => {
+    const config = loadConfig({ SESSION_SECRET: "s3cret", RESEND_API_KEY: "   " });
+    expect(config.email.resendApiKey).toBeNull();
   });
 });

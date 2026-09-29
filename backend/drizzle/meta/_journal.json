@@ -71,6 +71,13 @@
       "when": 1790706243660,
       "tag": "0009_glorious_sabretooth",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790708015133,
+      "tag": "0010_watery_kingpin",
+      "breakpoints": true
     }
   ]
 }
