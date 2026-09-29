@@ -26,6 +26,7 @@ import type {
   InvoiceRepository,
 } from "../invoices/repository.js";
 import type { LeadRepository, LeadStageHistoryRepository } from "../leads/repository.js";
+import type { PaymentRepository } from "../payments/repository.js";
 
 export interface FirmRow {
   id: string;
@@ -207,6 +208,9 @@ export interface AuthRepositories {
   invoices: InvoiceRepository;
   invoiceLines: InvoiceLineRepository;
   invoiceNumbers: InvoiceNumberRepository;
+  /** Ticket 14: payments ride the same aggregate and transaction seam — the
+   * roll-up (payment insert + invoice status re-derivation) commits atomically. */
+  payments: PaymentRepository;
   /** Ticket 16: leads and their stage-history audit trail ditto. */
   leads: LeadRepository;
   leadStageHistory: LeadStageHistoryRepository;

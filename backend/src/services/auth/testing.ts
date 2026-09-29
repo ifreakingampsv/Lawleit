@@ -19,6 +19,8 @@ import {
 import type { InvoiceLineRow, InvoiceRow } from "../invoices/repository.js";
 import { InMemoryLeadRepository, InMemoryLeadStageHistoryRepository } from "../leads/in-memory.js";
 import type { LeadRow, LeadStageHistoryRow } from "../leads/repository.js";
+import { InMemoryPaymentRepository } from "../payments/in-memory.js";
+import type { PaymentRow } from "../payments/repository.js";
 import type {
   AuthRepositories,
   FirmPatch,
@@ -202,6 +204,7 @@ interface Store {
   invoiceLines: InvoiceLineRow[];
   /** Keyed by firmId — the in-memory twin of invoice_number_counters. */
   invoiceNumbers: Map<string, number>;
+  payments: PaymentRow[];
   leads: LeadRow[];
   leadStageHistory: LeadStageHistoryRow[];
 }
@@ -230,6 +233,7 @@ export function inMemoryAuthRepositories(): AuthRepositories {
     invoices: [],
     invoiceLines: [],
     invoiceNumbers: new Map(),
+    payments: [],
     leads: [],
     leadStageHistory: [],
   };
@@ -248,6 +252,7 @@ export function inMemoryAuthRepositories(): AuthRepositories {
     invoices: new InMemoryInvoiceRepository(store.invoices),
     invoiceLines: new InMemoryInvoiceLineRepository(store.invoices, store.invoiceLines),
     invoiceNumbers: new InMemoryInvoiceNumberRepository(store.invoiceNumbers),
+    payments: new InMemoryPaymentRepository(store.payments),
     leads: new InMemoryLeadRepository(store.leads),
     leadStageHistory: new InMemoryLeadStageHistoryRepository(store.leadStageHistory),
     async transaction(work) {

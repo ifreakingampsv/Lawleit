@@ -19,6 +19,7 @@ import {
   DrizzleLeadRepository,
   DrizzleLeadStageHistoryRepository,
 } from "../leads/drizzle.js";
+import { DrizzlePaymentRepository } from "../payments/drizzle.js";
 import type {
   AuthRepositories,
   FirmPatch,
@@ -247,6 +248,7 @@ export function reposOnExecutor(exec: DbExecutor): AuthRepositories {
     invoices: new DrizzleInvoiceRepository(exec),
     invoiceLines: new DrizzleInvoiceLineRepository(exec),
     invoiceNumbers: new DrizzleInvoiceNumberRepository(exec),
+    payments: new DrizzlePaymentRepository(exec),
     leads: new DrizzleLeadRepository(exec),
     leadStageHistory: new DrizzleLeadStageHistoryRepository(exec),
     transaction: () => {

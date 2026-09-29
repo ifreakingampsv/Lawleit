@@ -19,6 +19,8 @@ import { ExpensesService } from "../services/expenses/service.js";
 import { expenseRoutes } from "./expenses.js";
 import { InvoicesService } from "../services/invoices/service.js";
 import { invoiceRoutes } from "./invoices.js";
+import { PaymentsService } from "../services/payments/service.js";
+import { paymentRoutes } from "./payments.js";
 import { LeadsService } from "../services/leads/service.js";
 import { leadRoutes } from "./leads.js";
 import { DB_REQUIRED, extractToken, requireAuth } from "./requestAuth.js";
@@ -94,6 +96,7 @@ export async function protectedRoutes(
   const timeEntriesService = repos ? new TimeEntriesService(repos) : null;
   const expensesService = repos ? new ExpensesService(repos) : null;
   const invoicesService = repos ? new InvoicesService(repos) : null;
+  const paymentsService = repos ? new PaymentsService(repos) : null;
   const leadsService = repos ? new LeadsService(repos) : null;
 
   // The guard guarantees services exist whenever a handler runs; the helper
@@ -149,6 +152,11 @@ export async function protectedRoutes(
   // head: server-assigned INV-XXXX numbers and server-computed line math —
   // same guard, same every-member-manages rule.
   await app.register(invoiceRoutes, { invoicesService });
+
+  // Ticket 14: the payments surface (routes/payments.ts) — manual record-only
+  // money-in with the invoice roll-up committed in the same transaction —
+  // same guard, same every-member-manages rule.
+  await app.register(paymentRoutes, { paymentsService });
 
   // Ticket 16: the leads surface (routes/leads.ts) — CRUD + the conversion
   // transaction — same guard, same every-member-manages rule.

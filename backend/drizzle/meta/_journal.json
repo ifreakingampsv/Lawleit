@@ -50,6 +50,13 @@
       "when": 1790700637886,
       "tag": "0006_smooth_rockslide",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790702629383,
+      "tag": "0007_spooky_quentin_quire",
+      "breakpoints": true
     }
   ]
 }

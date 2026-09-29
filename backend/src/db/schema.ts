@@ -24,6 +24,7 @@ import { sql } from "drizzle-orm";
  * Ticket 11 tables: events, tasks.
  * Ticket 12 tables: time_entries, expenses.
  * Ticket 13 tables: invoices, invoice_line_items, invoice_number_counters.
+ * Ticket 14 table: payments.
  * Ticket 16 tables: leads, lead_stage_history.
  *
  * Conventions (drizzle/README.md): snake_case names, uuid primary keys with
@@ -614,6 +615,67 @@ export const leads = pgTable(
 );
 
 /**
+ * Payments (ticket 14) — the manual money-received record (V1: no gateway, no
+ * real money ever moves — a user records that a bank transfer / card / echeck /
+ * wallet receipt happened). Column set mirrors the contract's Payment
+ * (app/src/lib/data/types.ts) 1:1:
+ *
+ * - `amount` is bigint integer paise, service-validated > 0 (the ticket's
+ *   rule; the reference would store anything).
+ * - `method` is the contract's exact vocabulary — "card" | "echeck" | "wallet"
+ *   (default "card", the reference's `b.method ?? "card"`). The ticket floats
+ *   "bank transfer/UPI/cheque" as the V2 seam, but the contract is the spec
+ *   and its Payment.method vocabulary is card/echeck/wallet; when V2 lands
+ *   Indian rails the vocabulary widens THERE, not by inventing values now.
+ * - `status` carries the contract's pending/deposited/failed vocabulary but is
+ *   server-managed: V1 records always land "deposited" (the reference
+ *   hard-codes it; no client path writes pending/failed). The roll-up's
+ *   `status <> 'failed'` filter mirrors the reference for the day a gateway
+ *   (V2) starts writing the other values.
+ * - `date` is a plain `date mode:string` column (the contract carries ISO
+ *   YYYY-MM-DD days) — server-stamped with today on every record; both the
+ *   reference and the mock ignore a client-sent date.
+ * - `invoice_id` is a NULLABLE FK, indexed (the ticket's FK-index
+ *   requirement): the reference and the mock both accept payments with no
+ *   invoice (empty invoiceId — the unlinked trust deposit the app tests pin),
+ *   so "no invoice" is null and renders "" in the API shape.
+ * - `client_id` is a nullable FK like invoices.client_id: the reference
+ *   defaults it from the invoice; existence-checked in the service (ticket
+ *   15's ledger keys on it, so a dangling link must be impossible where the
+ *   reference would store one). Unindexed — no V1 server query path.
+ * - `trust_account` is the contract's `trustAccount` flag flowing through
+ *   verbatim (default false). Ticket 15 appends the trust-ledger entry for
+ *   flagged payments — see the marked hook in the payments service.
+ *
+ * No unique-ish business fields → no partial unique indexes (the contacts
+ * pattern). Soft delete per the baseline convention (no V1 route exercises
+ * it; the column exists so a future refund/void path needs no migration).
+ */
+export const payments = pgTable(
+  "payments",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    firmId: uuid("firm_id")
+      .notNull()
+      .references(() => firms.id),
+    invoiceId: uuid("invoice_id").references(() => invoices.id),
+    clientId: uuid("client_id").references(() => contacts.id),
+    date: date("date", { mode: "string" }).notNull(),
+    amount: bigint("amount", { mode: "number" }).notNull(),
+    method: text("method").notNull().default("card"),
+    status: text("status").notNull().default("deposited"),
+    trustAccount: boolean("trust_account").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("payments_firm_id_idx").on(table.firmId),
+    index("payments_invoice_id_idx").on(table.invoiceId),
+  ],
+);
+
+/**
  * Lead stage history (ticket 16) — the relational audit trail behind the
  * contract's "stage moves append to `activity`": one row per actual stage
  * change (a patch that sends the current stage records nothing), written by
@@ -716,6 +778,12 @@ export const invoicesRelations = relations(invoices, ({ one, many }) => ({
 export const invoiceLineItemsRelations = relations(invoiceLineItems, ({ one }) => ({
   firm: one(firms, { fields: [invoiceLineItems.firmId], references: [firms.id] }),
   invoice: one(invoices, { fields: [invoiceLineItems.invoiceId], references: [invoices.id] }),
+}));
+
+export const paymentsRelations = relations(payments, ({ one }) => ({
+  firm: one(firms, { fields: [payments.firmId], references: [firms.id] }),
+  invoice: one(invoices, { fields: [payments.invoiceId], references: [invoices.id] }),
+  client: one(contacts, { fields: [payments.clientId], references: [contacts.id] }),
 }));
 
 export const leadsRelations = relations(leads, ({ one, many }) => ({
