@@ -57,6 +57,13 @@
       "when": 1790702629383,
       "tag": "0007_spooky_quentin_quire",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790704135094,
+      "tag": "0008_boring_the_anarchist",
+      "breakpoints": true
     }
   ]
 }

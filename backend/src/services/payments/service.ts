@@ -3,6 +3,7 @@ import { HttpError } from "../httpError.js";
 import type { InvoiceRow } from "../invoices/repository.js";
 import type { ApiPayment, PaymentMethod } from "./repository.js";
 import { PAYMENT_METHODS, toApiPayment } from "./repository.js";
+import { trustDepositDescription } from "../trust/service.js";
 
 /** Shown (as a 400) when `method` is not in the contract's vocabulary. */
 export const PAYMENT_METHOD_MESSAGE = "Method must be card, echeck, or wallet";
@@ -105,8 +106,8 @@ export class PaymentsService {
    *
    * An absent/"" invoiceId is a valid UNLINKED payment (the reference and
    * the mock both store one, and the app tests pin it as the trust-deposit
-   * seam): no roll-up runs, and the trust flag (if set) flows through for
-   * ticket 15.
+   * seam): no roll-up runs, and a trust-flagged payment appends its ledger
+   * entry in the same transaction (the ticket-15 hook below).
    */
   async record(firmId: string, input: PaymentInput): Promise<ApiPayment> {
     const amount = input.amount;
@@ -159,19 +160,27 @@ export class PaymentsService {
 
       if (invoice) await this.rollUp(tx, firmId, invoice);
 
-      // ── TICKET 15 HOOK (trust ledger) ────────────────────────────────────
-      // When `payment.trustAccount` is true, ticket 15 appends the
-      // append-only trust-ledger entry HERE — inside this transaction, after
-      // the roll-up — exactly as the reference's appendTrust does:
-      //   clientId:  payment.clientId (validated live contact above)
-      //   caseId:    invoice?.caseId ?? null  (null for unlinked deposits)
-      //   date:      payment.date
-      //   description: `Trust deposit — invoice ${invoice?.number ?? "(unlinked)"}`
-      //   amount:    payment.amount (+in), balanceAfter = running per client.
-      // Everything ticket 15 needs is already persisted and in scope: the
-      // payments row carries trust_account/client_id/amount/date, and
-      // `invoice` (when linked) carries number + caseId. No schema change
-      // needed — a trust_transactions table joins this seam.
+      // ── TICKET 15 HOOK (trust ledger) — WIRED ────────────────────────────
+      // A trust-flagged payment appends its append-only ledger entry in THIS
+      // transaction, after the roll-up, exactly as the reference's
+      // appendTrust: the running balance is computed by the repository seam
+      // (tx.trust.append — previous balanceAfter + amount, concurrent
+      // same-client appends serialized on a per-client advisory lock), so the
+      // payment, the roll-up and the ledger entry commit or roll back
+      // together. clientId is the payment's already-validated live in-firm
+      // client (null → the unattributed ledger bucket, the reference's "");
+      // caseId comes from the linked invoice (null when unlinked) and the
+      // description is the reference's byte-identical deposit string.
+      if (payment.trustAccount) {
+        await tx.trust.append({
+          firmId,
+          clientId: payment.clientId,
+          caseId: invoice?.caseId ?? null,
+          date: payment.date,
+          description: trustDepositDescription(invoice?.number ?? null),
+          amount: payment.amount,
+        });
+      }
       // ────────────────────────────────────────────────────────────────────
 
       return payment;

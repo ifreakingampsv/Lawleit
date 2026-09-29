@@ -1,6 +1,7 @@
 import { relations } from "drizzle-orm";
 import {
   bigint,
+  bigserial,
   boolean,
   date,
   doublePrecision,
@@ -25,6 +26,7 @@ import { sql } from "drizzle-orm";
  * Ticket 12 tables: time_entries, expenses.
  * Ticket 13 tables: invoices, invoice_line_items, invoice_number_counters.
  * Ticket 14 table: payments.
+ * Ticket 15 table: trust_transactions.
  * Ticket 16 tables: leads, lead_stage_history.
  *
  * Conventions (drizzle/README.md): snake_case names, uuid primary keys with
@@ -676,6 +678,69 @@ export const payments = pgTable(
 );
 
 /**
+ * Trust transactions (ticket 15) — the client-money ledger, the
+ * correctness-critical module. Column set mirrors the contract's
+ * TrustTransaction (app/src/lib/data/types.ts) 1:1:
+ *
+ * - `amount` is bigint integer paise SIGNED (+ in, − out — the contract's
+ *   "amount: Paise; // + in, - out") and `balance_after` is the running
+ *   per-client balance stamped by the append itself.
+ * - `date` is a plain `date mode:string` column (the contract carries ISO
+ *   YYYY-MM-DD days — the reference/mock stamp today's day string).
+ * - `client_id` is a nullable FK, indexed (the ticket's FK-index requirement;
+ *   the running balance is keyed by it). Null is the unattributed bucket the
+ *   reference stores as "" when a trust-flagged payment names no client —
+ *   entries still append and render "" in the API shape. Its liveness is
+ *   enforced upstream (the payments service only appends for live in-firm
+ *   clients), so soft deletes keep the referenced row alive and no ON DELETE
+ *   action is needed — a client's deletion must never rewrite their money
+ *   history.
+ * - `case_id` is a nullable FK (the reference's `invoice?.caseId ?? ""` —
+ *   null for unlinked deposits), indexed like invoices.case_id.
+ *
+ * APPEND-ONLY, deliberately departing from the baseline conventions: there is
+ * NO update path, NO updated_at, and NO deleted_at — a ledger never rewrites
+ * history (the model/contract has no edit or delete surface, and a trust
+ * reconciliation is only meaningful over an immutable history; a mistaken
+ * entry is corrected by a contra entry, the accounting practice). Rows are
+ * never soft-deleted, so every read sees the whole history and the balance
+ * chain can be recomputed from the amounts alone.
+ *
+ * `seq` is the DB-only insertion-order stamp (bigserial): concurrent appends
+ * for one client serialize on a per-client advisory lock, and the sequence —
+ * assigned at insert time under that lock — makes the true append order
+ * deterministic where (created_at, id) is not (same-instant inserts, random
+ * UUID tie-breaks). The API mapper whitelists it out (the events.`source`
+ * seam treatment); reconcile and list order by it. No unique-ish business
+ * fields → no partial unique indexes.
+ */
+export const trustTransactions = pgTable(
+  "trust_transactions",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    firmId: uuid("firm_id")
+      .notNull()
+      .references(() => firms.id),
+    clientId: uuid("client_id").references(() => contacts.id),
+    caseId: uuid("case_id").references(() => cases.id),
+    date: date("date", { mode: "string" }).notNull(),
+    description: text("description").notNull().default(""),
+    /** Signed integer paise: + in, − out (types.ts Paise). */
+    amount: bigint("amount", { mode: "number" }).notNull(),
+    /** Running per-client balance after this entry, integer paise. */
+    balanceAfter: bigint("balance_after", { mode: "number" }).notNull(),
+    /** Insertion-order stamp (see above) — DB-only, never in API responses. */
+    seq: bigserial("seq", { mode: "number" }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("trust_transactions_firm_id_idx").on(table.firmId),
+    index("trust_transactions_client_id_idx").on(table.clientId),
+    index("trust_transactions_case_id_idx").on(table.caseId),
+  ],
+);
+
+/**
  * Lead stage history (ticket 16) — the relational audit trail behind the
  * contract's "stage moves append to `activity`": one row per actual stage
  * change (a patch that sends the current stage records nothing), written by
@@ -784,6 +849,12 @@ export const paymentsRelations = relations(payments, ({ one }) => ({
   firm: one(firms, { fields: [payments.firmId], references: [firms.id] }),
   invoice: one(invoices, { fields: [payments.invoiceId], references: [invoices.id] }),
   client: one(contacts, { fields: [payments.clientId], references: [contacts.id] }),
+}));
+
+export const trustTransactionsRelations = relations(trustTransactions, ({ one }) => ({
+  firm: one(firms, { fields: [trustTransactions.firmId], references: [firms.id] }),
+  client: one(contacts, { fields: [trustTransactions.clientId], references: [contacts.id] }),
+  kase: one(cases, { fields: [trustTransactions.caseId], references: [cases.id] }),
 }));
 
 export const leadsRelations = relations(leads, ({ one, many }) => ({

@@ -321,12 +321,26 @@ describe("payments (ticket 14)", () => {
     // No roll-up ran (there is no invoice): the linked invoice is still draft.
     expect(await invoiceStatus(app, firmA.token, invoice.id)).toBe("draft");
 
-    // The unlinked payments persist with the flag on — ticket 15's ledger
-    // append reads exactly these rows (the ledger itself is ticket 15).
+    // The unlinked payments persist with the flag on — and ticket 15's hook
+    // has appended each one to the trust ledger with a running balance
+    // (same transaction as the payment: the ledger exists iff the payment does).
     const listed = await app.inject({ method: "GET", url: "/api/v1/payments", headers: bearer(firmA.token) });
     const payments = listed.json() as { invoiceId: string; trustAccount: boolean; amount: number }[];
     expect(payments).toHaveLength(2);
     expect(payments.every((p) => p.invoiceId === "" && p.trustAccount)).toBe(true);
+
+    const ledger = await app.inject({
+      method: "GET", url: "/api/v1/trust/transactions", headers: bearer(firmA.token),
+    });
+    expect(ledger.statusCode).toBe(200);
+    const entries = ledger.json() as {
+      clientId: string; amount: number; balanceAfter: number; description: string;
+    }[];
+    expect(entries).toHaveLength(2);
+    expect(entries.map((t) => t.balanceAfter)).toEqual([50000, 100000]);
+    expect(
+      entries.every((t) => t.clientId === clientId && t.description.startsWith("Trust deposit — invoice")),
+    ).toBe(true);
     await app.close();
   });
 

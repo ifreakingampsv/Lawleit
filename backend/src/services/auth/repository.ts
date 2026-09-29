@@ -27,6 +27,7 @@ import type {
 } from "../invoices/repository.js";
 import type { LeadRepository, LeadStageHistoryRepository } from "../leads/repository.js";
 import type { PaymentRepository } from "../payments/repository.js";
+import type { TrustRepository } from "../trust/repository.js";
 
 export interface FirmRow {
   id: string;
@@ -211,6 +212,10 @@ export interface AuthRepositories {
   /** Ticket 14: payments ride the same aggregate and transaction seam — the
    * roll-up (payment insert + invoice status re-derivation) commits atomically. */
   payments: PaymentRepository;
+  /** Ticket 15: the append-only trust ledger rides the same aggregate and
+   * transaction seam — a trust-flagged payment and its ledger entry commit
+   * atomically, and the per-client append serialization holds inside it. */
+  trust: TrustRepository;
   /** Ticket 16: leads and their stage-history audit trail ditto. */
   leads: LeadRepository;
   leadStageHistory: LeadStageHistoryRepository;
