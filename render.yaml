@@ -1,0 +1,25 @@
+# Render blueprint for the Lawleit API (ticket 19).
+# Render reads this from the repo root when the owner creates a "Blueprint" —
+# secret values marked sync:false are filled in the dashboard form, never in git.
+services:
+  - type: web
+    name: lawleit-api
+    runtime: docker
+    rootDir: backend
+    region: singapore
+    plan: free
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: COOKIE_SAMESITE
+        value: none
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: CORS_ORIGINS
+        sync: false
