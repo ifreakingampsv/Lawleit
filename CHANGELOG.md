@@ -152,3 +152,83 @@ Append-only. One entry per meaningful action: `- HH:MM — area: what changed an
   39 out/cmp composites, appended 43 fresh rows (verify.jsonl → 131 lines). Visual
   state identical — parity fixes are data-layer only. Audit green again: coverage /
   paired evidence / attribution / freshness / provenance all pass.
+
+## Session 3 — 2026-10-01 → 2026-10-02
+
+The V1 build: 20 tracer-bullet tickets (specs + post-build notes in
+`.scratch/v1/issues/`) took the project from mock-era to two live versions.
+
+- (plan) V1 planning locked: grilled decisions, spec, and 20 tickets cut as
+  tracer bullets — backend skeleton → money → modules → deploys (106ef34).
+- (backend) Ticket 01: TypeScript Fastify backend skeleton — contract error
+  envelope, CORS allow-list, typed env with fail-fast boot, health, 13 tests (9c77e96).
+- (data) Ticket 02: INR-native money — integer-paise types everywhere, one shared
+  ₹ formatter with Indian digit grouping, rupee seed across 23 files (90741b1).
+- (data) Ticket 03: Demo Firm seed — Kaul & Bhatnagar Associates (Delhi; district
+  courts / Delhi HC / NCLT matters), fictional and internally consistent (03dbcff).
+- (build) Ticket 04: one-click demo entry + reset — hero CTA straight into the
+  Demo Firm (no login form), Demo badge, reset via account menu/settings (8dc82d9).
+- (deploy) Ticket 05: Demo Version LIVE on Vercel — https://lawleit-kappa.vercel.app
+  verified in-browser: one-click entry, ₹ formatting, deep links, reset (deba87e).
+- (backend) Ticket 06: Postgres wiring — Drizzle + versioned migrations, lazy pooled
+  SSL client, db-aware health, tests skip cleanly without DATABASE_URL (dc39f7e).
+- (backend) Ticket 07: auth — firms/users/sessions/resets schema, argon2id, opaque
+  revocable session tokens (Bearer + httpOnly cookie), cross-firm isolation
+  template, ADR-0005 (6feedf5).
+- (backend) Ticket 08: user management — owner-only invite/patch, last-active-owner
+  invariant, additive POST /users with invite token via the mailer (dec2e76).
+- (backend) Ticket 09: contacts — schema + migration 0001, repository seam,
+  firm-scoped CRUD with soft deletes, member-writable, isolation tests (d38c7db).
+- (backend) Ticket 10: cases — migration 0002, per-firm-year server-assigned
+  numbers via atomic counters, filters, soft delete, concurrency tests (ca21419).
+- (backend) Ticket 11: events + tasks — migration 0003, ISO-day semantics,
+  completion-via-status, event-source field as the V2 cause-list seam (3f4ec63).
+- (backend) Ticket 12: time entries + expenses — migration 0004, newest-first CRUD,
+  required case links, server-managed invoiced flag (4eeec9c).
+- (backend) Ticket 16: leads + conversion — migration 0005, stage history,
+  one-transaction conversion sharing the case counter, 409 on double-convert (ddcdef8).
+- (backend) Ticket 13: invoices — migration 0006, INV counter, server-computed line
+  amounts, GST/TDS seam columns, uninvoiced-entry seams (006cf15).
+- (backend) Ticket 14: payments — migration 0007, same-transaction invoice roll-up
+  (partial payment keeps a draft a draft), immutable payments, trust hook (cbdad3e).
+- (backend) Ticket 15: trust ledger — migration 0008, append-only ledger with
+  per-client advisory-lock-serialized balance chains, reconcile + tamper detection,
+  ticket-14 hook wired (67e09db).
+- (backend) Ticket 17: real uploads — migration 0009, StorageService + S3 signed
+  URLs against Supabase Storage, type/size guards, per-firm key prefixes; demo mode
+  does 1 MB data-URL uploads (7ad0171).
+- (backend) Ticket 18: transactional email — migration 0010 outbox, retry worker
+  with exponential backoff, Resend sender (env-gated), branded templates, owner
+  runbook (dfa9b37).
+- (certify) Certified on real Postgres: full backend suite green against Supabase
+  Mumbai incl. the real-DB twins; fixed a session passwordHash leak found during
+  certification (service-layer mapping) plus last-owner fixture, outbox timestamp
+  normalization, stale line-math expectation (afdbd27).
+- (deploy) Hosting pivot: Fly.io began requiring a payment method → owner chose
+  Render free tier (Singapore) for the API; ADR-0004 updated, fly.toml removed,
+  host-agnostic multi-stage Dockerfile + render.yaml blueprint (9fb704b, d658b41, cff2ba4).
+- (deploy) Production deploy verified LIVE: /health db:ok, auth gate 401s, contract
+  signup → 201 (firm + owner + token), passwordHash absent from responses (2296b0b).
+- (fix) SPA rewrite via app/vercel.json — production deep links 404'd (deploy build
+  had skipped the spa-fallback step); filesystem-first rewrite fixed both Vercel
+  projects (610e749).
+- (fix) CORS preflight: @fastify/cors's default methods (GET, HEAD, POST) silently
+  blocked browser PATCH/DELETE — Send invoice and edits were dead on production
+  while all server tests stayed green; explicit methods list + regression test (738b19e).
+- (verify) Ticket 19 RESOLVED: production parity walkthrough on the live system —
+  every module exercised end to end (server-numbered cases, lead conversion,
+  invoice → sent → paid, ₹50,000 trust deposit + three-way reconciliation) with
+  mock/http parity confirmed (9f3cc63).
+- (docs) Ticket 20 scope locked from walkthrough findings + owner decisions: PLAN.md
+  rewrite, API_CONTRACT additions, smoke.mjs portability, mode-aware login copy,
+  signup fetch-error handling; invite form DESCOPED to the first post-V1 ticket
+  (API capability stays; fresh-install seed script deferred with it) (927ba24).
+- (decide) Owner REVERSED the descope: the Settings invite form is IN for V1 —
+  full vertical slice under ticket 20 (LawleitApi.createUser, mock + http
+  adapters, owner-visible form, tests); invite links go to server logs until a
+  Resend key is configured on Render (63372ea).
+- (docs) Ticket 20 docs pass: PLAN.md rewritten to the built system — two live
+  versions with URLs, Render/Vercel hosting story, the 20-ticket ledger as
+  milestones; API_CONTRACT.md extended with the V1-cutover additions (POST /users
+  invites, documents sign-upload/download, GET /health, signup payload, auth +
+  patch-semantics notes).
