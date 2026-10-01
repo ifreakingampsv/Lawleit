@@ -114,6 +114,23 @@ describe("CORS allow-list", () => {
     await app.close();
   });
 
+  it("preflight advertises PATCH and DELETE so browser edits are not blocked", async () => {
+    const app = await buildApp(testConfig);
+    const res = await app.inject({
+      method: "OPTIONS",
+      url: "/api/v1/cases",
+      headers: {
+        origin: "http://localhost:5173",
+        "access-control-request-method": "PATCH",
+      },
+    });
+    expect(res.statusCode).toBe(204);
+    const methods = String(res.headers["access-control-allow-methods"] ?? "");
+    expect(methods).toContain("PATCH");
+    expect(methods).toContain("DELETE");
+    await app.close();
+  });
+
   it("withholds CORS headers from non-allow-listed origins", async () => {
     const app = await buildApp(testConfig);
     const res = await app.inject({

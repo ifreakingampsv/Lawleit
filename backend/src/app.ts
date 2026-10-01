@@ -59,6 +59,10 @@ export async function buildApp(
   // Browser origins must be on the allow-list; requests without an Origin
   // header (curl, the vite proxy, server-to-server) are not CORS-governed.
   await app.register(cors, {
+    // Browsers preflight every non-simple method (PATCH, DELETE); the plugin's
+    // default method list is GET,HEAD,POST — without these the UI's edits are
+    // silently blocked while every server-side test stays green.
+    methods: ["GET", "HEAD", "POST", "PATCH", "DELETE", "OPTIONS"],
     origin: (origin, cb) => {
       if (origin === undefined || config.corsOrigins.includes(origin)) return cb(null, true);
       cb(null, false);
