@@ -30,6 +30,17 @@ const SS_KEY = "lawleit.session.v1";
  */
 const DEMO_MAX_UPLOAD_BYTES = 1024 * 1024;
 
+/**
+ * The avatar palette the Demo Firm seed draws from; invited users cycle
+ * through it so the Settings table stays colorful without any input.
+ */
+const AVATAR_PALETTE = [
+  "#4B4ACF", "#3DBDB4", "#E0876A", "#8B7FD4", "#2E9E6B", "#B85C38", "#0E7490", "#64748B",
+];
+
+/** The role vocabulary the backend's POST /users accepts (docs/API_CONTRACT.md). */
+const ROLES = ["owner", "attorney", "paralegal", "staff"] as const;
+
 interface DB {
   users: User[];
   firm: Firm;
@@ -186,6 +197,39 @@ class MockAdapter implements LawleitApi {
     const u = this.db.users.find((x) => x.id === id);
     if (!u) throw new Error("User not found");
     Object.assign(u, patch);
+    this.save();
+    return u;
+  }
+
+  /**
+   * Invite a user (POST /users parity): owner-only, emails unique across the
+   * db (the backend enforces global uniqueness), role vocabulary enforced.
+   * Mock invite semantics: the User model holds no password at all — seeded
+   * users have none either, and login matches by email alone (any password),
+   * so an invited demo user signs in exactly like a seeded one.
+   */
+  async createUser(input: {
+    name: string; email: string; role: User["role"]; hourlyRate?: number; avatarColor?: string;
+  }): Promise<User> {
+    const s = this.withSession();
+    if (s.user.role !== "owner") {
+      throw new Error("Only the firm owner can manage users");
+    }
+    if (!ROLES.includes(input.role)) {
+      throw new Error("Invalid role");
+    }
+    const email = input.email.trim();
+    if (this.db.users.some((u) => u.email.toLowerCase() === email.toLowerCase())) {
+      throw new Error("Email already registered");
+    }
+    const u: User = {
+      id: nid("u"), firmId: s.firm.id, name: input.name.trim(), email,
+      role: input.role,
+      avatarColor: input.avatarColor ?? AVATAR_PALETTE[this.db.users.length % AVATAR_PALETTE.length],
+      hourlyRate: input.hourlyRate ?? 0, active: true,
+    };
+    // Push (not reassign) so session snapshots sharing the array stay in sync.
+    this.db.users.push(u);
     this.save();
     return u;
   }

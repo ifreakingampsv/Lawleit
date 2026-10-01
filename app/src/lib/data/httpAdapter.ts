@@ -129,6 +129,18 @@ class HttpAdapter implements LawleitApi {
   updateFirm(patch: Partial<Firm>) { return http<Firm>("PATCH", "/firm", { body: patch }); }
   listUsers() { return http<User[]>("GET", "/users"); }
   updateUser(id: string, patch: Partial<User>) { return http<User>("PATCH", `/users/${id}`, { body: patch }); }
+  /**
+   * POST /users (docs/API_CONTRACT.md): body { name, email, role, hourlyRate?,
+   * avatarColor? } → 201 ApiUser. hourlyRate is already integer paise and
+   * undefined keys drop out of the JSON body, so the input maps 1:1. Server
+   * errors surface as ApiError with the message verbatim (403 owner-only,
+   * 409 "Email already registered").
+   */
+  createUser(input: {
+    name: string; email: string; role: User["role"]; hourlyRate?: number; avatarColor?: string;
+  }) {
+    return http<User>("POST", "/users", { body: input });
+  }
 
   // ---- cases ----
   listCases() { return http<Case[]>("GET", "/cases"); }

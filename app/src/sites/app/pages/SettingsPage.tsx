@@ -1,9 +1,21 @@
 import { useState } from "react";
 import { api, apiMode } from "@/lib/data";
+import type { User } from "@/lib/data";
 import { useAsync } from "@/lib/hooks";
 import { formatINR0 } from "@/lib/money";
 import { resetDemoData } from "../demoReset";
 import { Card, CardTitle, Field, inputCls, Avatar } from "../ui";
+
+/** Shown when the invite submit fails without a server answer (network, CORS, cold start). */
+const NETWORK_ERROR = "Couldn't reach the server — it may be waking up. Try again in a moment.";
+
+/** Server messages ("Email already registered", the owner-only 403) pass through verbatim;
+ * a dropped fetch rejects with TypeError and gets the retry hint instead. Same rule as
+ * the auth pages, widened to accept the mock adapter's plain Error messages. */
+function inviteErrorMessage(e: unknown): string {
+  if (e instanceof TypeError) return NETWORK_ERROR;
+  return e instanceof Error ? e.message : NETWORK_ERROR;
+}
 
 export default function SettingsPage() {
   const { data: session, refetch: refetchSession } = useAsync(() => api.getSession(), []);
@@ -69,6 +81,8 @@ export default function SettingsPage() {
           </table>
         </Card>
 
+        {session?.user.role === "owner" && <InviteUserCard onInvited={() => void refetchUsers()} />}
+
         <Card className="p-6">
           <CardTitle>Plan &amp; billing</CardTitle>
           <div className="flex items-center justify-between rounded-xl border border-neutral-200 p-5">
@@ -120,6 +134,83 @@ function DemoDataCard() {
           </button>
         )}
       </div>
+    </Card>
+  );
+}
+
+/** Owner-only invite form (POST /users): the new teammate shows up in the
+ *  table above once the backend accepts and mails their set-password link. */
+function InviteUserCard({ onInvited }: { onInvited: () => void }) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState<User["role"]>("attorney");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [invited, setInvited] = useState<string | null>(null);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    setInvited(null);
+    try {
+      await api.createUser({ name, email, role });
+      setInvited(email.trim());
+      setName("");
+      setEmail("");
+      setRole("attorney");
+      onInvited();
+    } catch (err) {
+      setError(inviteErrorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card className="p-6" testid="invite-card">
+      <CardTitle>Invite user</CardTitle>
+      <p className="-mt-2 pb-3 text-[13px] text-neutral-500">
+        The invited person will get a link to set their password.
+      </p>
+      <form onSubmit={submit} data-testid="invite-form">
+        <div className="grid grid-cols-3 gap-4">
+          <Field label="Name">
+            <input data-testid="invite-name" required className={inputCls} value={name} onChange={(e) => setName(e.target.value)} />
+          </Field>
+          <Field label="Email">
+            <input data-testid="invite-email" type="email" required className={inputCls} value={email} onChange={(e) => setEmail(e.target.value)} />
+          </Field>
+          <Field label="Role">
+            <select data-testid="invite-role" className={inputCls} value={role} onChange={(e) => setRole(e.target.value as User["role"])}>
+              <option value="attorney">Attorney</option>
+              <option value="paralegal">Paralegal</option>
+              <option value="staff">Staff</option>
+              <option value="owner">Owner</option>
+            </select>
+          </Field>
+        </div>
+        <div className="mt-4 flex items-center gap-3">
+          <button
+            data-testid="invite-submit"
+            type="submit"
+            disabled={busy}
+            className="rounded-full bg-lawleit px-6 py-2.5 text-[14px] font-bold text-white hover:bg-lawleit-dark disabled:opacity-60"
+          >
+            {busy ? "Sending…" : "Send invite"}
+          </button>
+          {invited && (
+            <span data-testid="invite-sent" className="text-[13px] font-semibold text-emerald-600">
+              Invite sent — {invited} will get a link to set their password.
+            </span>
+          )}
+          {error && (
+            <span role="alert" data-testid="invite-error" className="text-[13px] font-semibold text-red-600">
+              {error}
+            </span>
+          )}
+        </div>
+      </form>
     </Card>
   );
 }

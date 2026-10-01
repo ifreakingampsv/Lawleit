@@ -21,4 +21,5 @@ export const api: LawleitApi = mode === "http" ? httpAdapter : mockAdapter;
 
 export const apiMode: "mock" | "http" = mode;
 
+export { ApiError } from "./httpAdapter";
 export * from "./types";

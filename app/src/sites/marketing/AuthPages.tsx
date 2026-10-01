@@ -3,19 +3,36 @@ import { Link, useNavigate } from "react-router";
 import SiteHeader from "./SiteHeader";
 import SiteFooter from "./SiteFooter";
 import { Logo, GemMark } from "@/lib/brand";
-import { api } from "@/lib/data";
+import { ApiError, api, apiMode } from "@/lib/data";
+
+/** Shown when a submit fails without a server answer (network, CORS, cold start). */
+const NETWORK_ERROR = "Couldn't reach the server — it may be waking up. Try again in a moment.";
+
+/** Server messages (e.g. "Email already registered") pass through verbatim; a dropped
+ * fetch rejects with TypeError and gets the retry hint instead. */
+function submitErrorMessage(e: unknown): string {
+  return e instanceof ApiError ? e.message : NETWORK_ERROR;
+}
 
 /** S: /login — card form on soft background */
 export function LoginPage() {
   const [email, setEmail] = useState("alex@lawleit.legal");
   const [password, setPassword] = useState("demo");
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
-    await api.login(email, password);
-    navigate("/app");
+    setError(null);
+    try {
+      await api.login(email, password);
+      navigate("/app");
+    } catch (err) {
+      setError(submitErrorMessage(err));
+    } finally {
+      setBusy(false);
+    }
   };
   return (
     <div className="flex min-h-screen flex-col bg-[#f7f7f5]">
@@ -47,9 +64,16 @@ export function LoginPage() {
           >
             {busy ? "Signing in…" : "Log In"}
           </button>
-          <p className="mt-4 text-center text-[13px] text-neutral-500">
-            Mock auth: any email/password works — seeded demo firm loads.
-          </p>
+          {error && (
+            <p role="alert" data-testid="login-error" className="mt-4 text-center text-[13px] font-semibold text-red-600">
+              {error}
+            </p>
+          )}
+          {apiMode === "mock" && (
+            <p className="mt-4 text-center text-[13px] text-neutral-500">
+              Mock auth: any email/password works — seeded demo firm loads.
+            </p>
+          )}
           <p className="mt-4 text-center text-[14px] text-neutral-700">
             New to Lawleit? <Link to="/free-trial" className="font-bold text-lawleit hover:underline">Start a free trial</Link>
           </p>
@@ -66,6 +90,7 @@ export function FreeTrialPage() {
     zip: "", employees: "3", phone: "", legal: "yes",
   });
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -73,11 +98,18 @@ export function FreeTrialPage() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
-    await api.signup({
-      firstName: form.firstName, lastName: form.lastName, email: form.email,
-      firmName: form.firmName, zip: form.zip, employees: Number(form.employees) || 1, phone: form.phone,
-    });
-    navigate("/app");
+    setError(null);
+    try {
+      await api.signup({
+        firstName: form.firstName, lastName: form.lastName, email: form.email,
+        firmName: form.firmName, zip: form.zip, employees: Number(form.employees) || 1, phone: form.phone,
+      });
+      navigate("/app");
+    } catch (err) {
+      setError(submitErrorMessage(err));
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -152,6 +184,11 @@ export function FreeTrialPage() {
           >
             {busy ? "Creating your workspace…" : "Get Started"}
           </button>
+          {error && (
+            <p role="alert" data-testid="trial-error" className="mt-4 text-center text-[13px] font-semibold text-red-600">
+              {error}
+            </p>
+          )}
           <p className="mt-4 text-center text-[13px] italic text-neutral-500">
             By submitting this form, you agree that Lawleit may collect and use your contact information to respond to your inquiry. You can unsubscribe at any time. See our Privacy Policy for more details.
           </p>

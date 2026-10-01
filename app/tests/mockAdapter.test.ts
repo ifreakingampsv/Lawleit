@@ -151,6 +151,60 @@ describe("leads", () => {
   });
 });
 
+describe("users — invites (ticket 08/20)", () => {
+  it("owner invites a user; they appear in listUsers and can sign in like a seeded user", async () => {
+    const api = await fresh();
+    const before = (await api.listUsers()).length;
+
+    const invited = await api.createUser({ name: "Kavya Iyer", email: "kavya@kaulbhatnagar.example", role: "paralegal" });
+    expect(invited.role).toBe("paralegal");
+    expect(invited.active).toBe(true);
+    expect(invited.firmId).toBe("f1");
+    expect(invited.hourlyRate).toBe(0); // default when omitted
+    expect(invited.avatarColor).toMatch(/^#/); // palette default assigned
+
+    const users = await api.listUsers();
+    expect(users.length).toBe(before + 1);
+    expect(users.some((u) => u.email === "kavya@kaulbhatnagar.example")).toBe(true);
+
+    // Mock invite semantics: no password exists anywhere — login matches by
+    // email alone (any password), exactly like the seeded users.
+    const session = await api.login("kavya@kaulbhatnagar.example", "anything");
+    expect(session.user.id).toBe(invited.id);
+  });
+
+  it("hourlyRate and avatarColor pass through when provided", async () => {
+    const api = await fresh();
+    const invited = await api.createUser({
+      name: "Priced Attorney", email: "priced@kaulbhatnagar.example", role: "attorney",
+      hourlyRate: 250000, avatarColor: "#123456",
+    });
+    expect(invited.hourlyRate).toBe(250000);
+    expect(invited.avatarColor).toBe("#123456");
+  });
+
+  it("members cannot invite (owner-only, backend 403 message)", async () => {
+    const api = await fresh();
+    await api.login("fatima@kaulbhatnagar.example", "demo"); // paralegal
+    await expect(api.createUser({ name: "Nope", email: "nope@kaulbhatnagar.example", role: "staff" }))
+      .rejects.toThrow("Only the firm owner can manage users");
+    expect((await api.listUsers()).some((u) => u.email === "nope@kaulbhatnagar.example")).toBe(false);
+  });
+
+  it("a taken email is rejected (backend 409 message, case-insensitive)", async () => {
+    const api = await fresh();
+    await expect(api.createUser({ name: "Dupe", email: "MEERA@kaulbhatnagar.example", role: "attorney" }))
+      .rejects.toThrow("Email already registered");
+  });
+
+  it("a role outside the contract vocabulary is rejected (backend 400)", async () => {
+    const api = await fresh();
+    await expect(
+      api.createUser({ name: "Bad Role", email: "bad@kaulbhatnagar.example", role: "intern" as never }),
+    ).rejects.toThrow("Invalid role");
+  });
+});
+
 describe("persistence", () => {
   it("mutations survive a fresh adapter load (localStorage is the DB)", async () => {
     const api = await fresh();

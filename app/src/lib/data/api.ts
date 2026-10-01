@@ -32,6 +32,22 @@ export interface LawleitApi {
   updateFirm(patch: Partial<Firm>): Promise<Firm>;
   listUsers(): Promise<User[]>;
   updateUser(id: string, patch: Partial<User>): Promise<User>;
+  /**
+   * Invites a user (POST /users, ticket 08): owner-only — members get 403
+   * "Only the firm owner can manage users"; a taken email (unique across the
+   * whole backend, not just the firm) gets 409 "Email already registered";
+   * a role outside owner | attorney | paralegal | staff is rejected. The
+   * created user is active with no password yet — the invite link the backend
+   * mails them is how they set their first password.
+   */
+  createUser(input: {
+    name: string;
+    email: string;
+    role: User["role"];
+    /** Integer paise (see Paise); omitted → the backend's default. */
+    hourlyRate?: User["hourlyRate"];
+    avatarColor?: string;
+  }): Promise<User>;
 
   // cases
   listCases(): Promise<Case[]>;
