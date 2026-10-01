@@ -22,3 +22,12 @@ a purchased domain (`lawleit.in`) becomes required at launch for production emai
 - Two platform accounts (Vercel, Fly.io); deploys are git-push driven.
 - The API's CORS allow-list must include the Vercel origins.
 - ADR-0002's "vanilla Postgres only" rule keeps the whole stack swappable per piece.
+
+## Update 2026-10-01: API host is Render (free tier), not Fly
+
+Fly.io began requiring a payment method before any app creation; the owner chose
+Render's free tier instead. Same container (backend/Dockerfile works on both — hosts
+are swappable), same Vercel frontends. Accepted trade-offs: Singapore region (nearest
+Render has — adds latency to every Mumbai-DB roundtrip) and free-tier cold starts
+(~30–60s after 15 min idle). Revisit trigger: paying users or latency complaints —
+re-deploying the same image on Fly Mumbai is a config change, not a rewrite.
