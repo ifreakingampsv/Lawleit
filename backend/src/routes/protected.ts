@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { AuthRepositories } from "../services/auth/repository.js";
+import { toApiFirm, toApiUser } from "../services/auth/repository.js";
 import type { AuthService } from "../services/auth/service.js";
 import type { Mailer } from "../services/auth/mailer.js";
 import { FirmService } from "../services/firm/service.js";
@@ -94,7 +95,11 @@ export async function protectedRoutes(
     if (!authService) return reply.status(503).send({ error: DB_REQUIRED });
     const auth = await authService.authenticate(extractToken(request));
     if (!auth) return reply.status(401).send({ error: "Not signed in" });
-    request.auth = auth;
+    // Whitelist, don't forward: the session bundle's user row is a storage
+    // row (it carries the argon2 hash for login); the request context only
+    // ever holds the API shapes, so no route can leak the hash by serializing
+    // request.auth.
+    request.auth = { token: auth.token, user: toApiUser(auth.user), firm: toApiFirm(auth.firm) };
   });
 
   const firmService = repos ? new FirmService(repos) : null;

@@ -119,11 +119,16 @@ describe.skipIf(!process.env.DATABASE_URL)("email outbox against Postgres", () =
     await outbox.markFailed(row.id, 1, "Resend rejected the send (HTTP 500)", retryAt, now);
 
     const rows = await handle.sql`select status, attempts, last_error, available_at from email_outbox where id = ${row.id}`;
-    const record = rows[0] as { status: string; attempts: number; last_error: string; available_at: Date };
+    const record = rows[0] as { status: string; attempts: number; last_error: string; available_at: string };
     expect(record.status).toBe("pending");
     expect(record.attempts).toBe(1);
     expect(record.last_error).toContain("HTTP 500");
-    expect(record.available_at.getTime()).toBe(retryAt.getTime());
+    // Raw sql reads come back as PG text here: drizzle() installs transparent
+    // type parsers for the timestamp/date OIDs on the SHARED postgres.js
+    // client (it re-parses at its own layer), which raw queries inherit. The
+    // repository seam is unaffected — OutboxEmailRow.availableAt is a Date in
+    // both bindings (test 1 asserts it) — so compare instants, not identities.
+    expect(new Date(record.available_at).getTime()).toBe(retryAt.getTime());
   });
 
   it("markFailed with no retry poisons the row (status failed, never due again)", async () => {

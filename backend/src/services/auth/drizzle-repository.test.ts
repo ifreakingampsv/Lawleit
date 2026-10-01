@@ -131,21 +131,35 @@ describe.skipIf(!process.env.DATABASE_URL)("auth repositories against Postgres",
 
   it("deactivating a user revokes their sessions (cascade table intact)", async () => {
     const repos = createDrizzleRepositories(handle);
-    const auth = new AuthService(repos, new CapturingMailer());
-    const userService = new UserService(repos);
+    // One mailer for both flows: `invites` carries the co-owner invite token,
+    // `sends` the original owner's password-reset token.
+    const mailer = new CapturingMailer();
+    const auth = new AuthService(repos, mailer);
+    const userService = new UserService(repos, mailer);
     const registered = await auth.register({
       firstName: "E", lastName: "F", email: "deactivate@firm.example",
       firmName: "Deactivate Firm", zip: "", phone: "",
     });
 
-    const mailer = new CapturingMailer();
-    const resetAuth = new AuthService(repos, mailer);
-    await resetAuth.requestPasswordReset(registered.user.email);
-    await resetAuth.consumePasswordReset(mailer.sends[0]!.token, "password-123");
+    // The last-active-owner invariant (ticket 08) correctly refuses to leave
+    // the firm leaderless: onboard a second owner first (the ticket-08 invite
+    // machinery — UserService.create issues the token, the reset consume sets
+    // the first password), then deactivate the original owner.
+    await userService.create(registered.user, {
+      name: "Gita Rao", email: "co-owner@firm.example", role: "owner",
+    });
+    await auth.consumePasswordReset(mailer.invites[0]!.token, "co-owner-pass-123");
+    const coOwnerLogin = await auth.login("co-owner@firm.example", "co-owner-pass-123");
+    expect(await auth.authenticate(coOwnerLogin.token)).not.toBeNull();
+
+    await auth.requestPasswordReset(registered.user.email);
+    await auth.consumePasswordReset(mailer.sends[0]!.token, "password-123");
     const session = await auth.login(registered.user.email, "password-123");
     expect(await auth.authenticate(session.token)).not.toBeNull();
 
     await userService.update(registered.user, registered.firm.id, registered.user.id, { active: false });
     expect(await auth.authenticate(session.token)).toBeNull();
+    // The co-owner's session is untouched — the revocation is per-user.
+    expect(await auth.authenticate(coOwnerLogin.token)).not.toBeNull();
   });
 });

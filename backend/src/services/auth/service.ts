@@ -145,10 +145,20 @@ export class AuthService {
     return this.repos.sessions.findActive(token, this.now());
   }
 
-  /** Full session payload (contract: { user, firm, users }). */
+  /**
+   * Full session payload (contract: { user, firm, users }). Every user row —
+   * the session's own and the firm list — goes through the toApiUser
+   * whitelist: repositories return storage rows (UserRow carries the argon2
+   * hash for login verification), and this is the boundary that must strip it
+   * before the payload reaches the browser.
+   */
   async sessionView(bundle: SessionBundle): Promise<SessionView> {
     const users = await this.repos.users.listByFirm(bundle.firmId);
-    return { user: toApiUser(bundle.user), firm: toApiFirm(bundle.firm), users };
+    return {
+      user: toApiUser(bundle.user),
+      firm: toApiFirm(bundle.firm),
+      users: users.map(toApiUser),
+    };
   }
 
   async logout(token: string | null): Promise<void> {

@@ -174,9 +174,10 @@ describe.skipIf(!process.env.DATABASE_URL)("invoices against Postgres", () => {
         ["7 min at odd rate", 52500], // 7 × 450000 / 60, exact real math
       ]);
 
-    // The total seam ticket 14's roll-up reads: Σ of the stored amounts,
-    // exact paise (555000 + 52500), and 404 for an unknown invoice.
-    expect(await invoices.totalPaise(firmId, created.id)).toBe(607500);
+    // The total seam ticket 14's roll-up reads: the exact Σ of the stored
+    // amounts — 505000 (450000 + 50000 + 5000) + 52500 — and 404 for an
+    // unknown invoice.
+    expect(await invoices.totalPaise(firmId, created.id)).toBe(557500);
     await expect(invoices.totalPaise(firmId, "00000000-0000-4000-8000-00000000dead"))
       .rejects.toMatchObject({ statusCode: 404, message: "Invoice not found" });
   });
