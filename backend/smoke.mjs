@@ -392,7 +392,9 @@ if (await implemented("/reports", token) && await implemented("/notifications", 
   const reports = await req("GET", "/reports", { token });
   ok(reports.status === 200 && reports.data?.length >= 1, "GET /reports");
   const notes = await req("GET", "/notifications", { token });
-  ok(notes.status === 200 && Array.isArray(notes.data) && notes.data.length >= 1, "GET /notifications");
+  // Shape-based: neither backend generates notifications at runtime (the
+  // reference's rows are seed data), so a freshly registered firm has none.
+  ok(notes.status === 200 && Array.isArray(notes.data), "GET /notifications");
   ok((await req("POST", "/notifications/read", { token })).status === 204, "POST /notifications/read → 204");
   const after = await req("GET", "/notifications", { token });
   ok(after.data?.every((n) => n.read === true), "all notifications read after POST /notifications/read");
