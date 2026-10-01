@@ -1,6 +1,16 @@
 import { randomUUID } from "node:crypto";
 import { InMemoryCaseNumberRepository, InMemoryCaseRepository } from "../cases/in-memory.js";
 import type { CaseRow } from "../cases/repository.js";
+import {
+  InMemoryNotificationRepository,
+  InMemoryThreadMessageRepository,
+  InMemoryThreadRepository,
+} from "../comms/in-memory.js";
+import type {
+  NotificationRow,
+  ThreadMessageRow,
+  ThreadRow,
+} from "../comms/repository.js";
 import { InMemoryContactRepository } from "../contacts/in-memory.js";
 import type { ContactRow } from "../contacts/repository.js";
 import { InMemoryDocumentRepository } from "../documents/in-memory.js";
@@ -213,6 +223,9 @@ interface Store {
   leads: LeadRow[];
   leadStageHistory: LeadStageHistoryRow[];
   documents: DocumentRow[];
+  threads: ThreadRow[];
+  threadMessages: ThreadMessageRow[];
+  notifications: NotificationRow[];
 }
 
 /**
@@ -220,7 +233,8 @@ interface Store {
  * against the same store (single-process tests have no partial failure to
  * roll back; the Drizzle impl owns real atomicity). Module repositories
  * (contacts, ticket 09; cases, ticket 10; events + tasks, ticket 11; time
- * entries + expenses, ticket 12; leads + stage history, ticket 16) share
+ * entries + expenses, ticket 12; leads + stage history, ticket 16; threads +
+ * messages + notifications, ticket 20) share
  * this store so their tests bind the same way.
  */
 export function inMemoryAuthRepositories(): AuthRepositories {
@@ -244,6 +258,9 @@ export function inMemoryAuthRepositories(): AuthRepositories {
     leads: [],
     leadStageHistory: [],
     documents: [],
+    threads: [],
+    threadMessages: [],
+    notifications: [],
   };
   const repos: AuthRepositories = {
     firms: new InMemoryFirmRepository(store),
@@ -265,6 +282,9 @@ export function inMemoryAuthRepositories(): AuthRepositories {
     leads: new InMemoryLeadRepository(store.leads),
     leadStageHistory: new InMemoryLeadStageHistoryRepository(store.leadStageHistory),
     documents: new InMemoryDocumentRepository(store.documents),
+    threads: new InMemoryThreadRepository(store.threads),
+    threadMessages: new InMemoryThreadMessageRepository(store.threadMessages),
+    notifications: new InMemoryNotificationRepository(store.notifications),
     async transaction(work) {
       return work(repos);
     },

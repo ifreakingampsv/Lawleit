@@ -15,6 +15,11 @@
  */
 
 import type { CaseNumberRepository, CaseRepository } from "../cases/repository.js";
+import type {
+  NotificationRepository,
+  ThreadMessageRepository,
+  ThreadRepository,
+} from "../comms/repository.js";
 import type { ContactRepository } from "../contacts/repository.js";
 import type { DocumentRepository } from "../documents/repository.js";
 import type { EventRepository } from "../events/repository.js";
@@ -223,5 +228,11 @@ export interface AuthRepositories {
   /** Ticket 17: documents ride the same aggregate and transaction seam —
    * the metadata row and its storage-key binding commit atomically. */
   documents: DocumentRepository;
+  /** Ticket 20: threads, their append-only messages and the notification
+   * bell ride the same aggregate and transaction seam — a message append
+   * and its thread stamp commit atomically. */
+  threads: ThreadRepository;
+  threadMessages: ThreadMessageRepository;
+  notifications: NotificationRepository;
   transaction<T>(work: (repos: AuthRepositories) => Promise<T>): Promise<T>;
 }

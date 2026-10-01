@@ -30,6 +30,7 @@ import { sql } from "drizzle-orm";
  * Ticket 16 tables: leads, lead_stage_history.
  * Ticket 17 table: documents.
  * Ticket 18 table: email_outbox.
+ * Ticket 20 tables: threads, thread_messages, notifications.
  *
  * Conventions (drizzle/README.md): snake_case names, uuid primary keys with
  * gen_random_uuid() defaults, firm_id uuid not null + index on every tenant
@@ -885,6 +886,139 @@ export const emailOutbox = pgTable(
   ],
 );
 
+/**
+ * Message threads (ticket 20) — the Communications inbox: secure-portal /
+ * email / SMS conversations with a client, the messages themselves living in
+ * thread_messages below. Column set mirrors the contract's MessageThread
+ * (app/src/lib/data/types.ts) 1:1:
+ *
+ * - `channel` is the contract's three-word vocabulary (secure | email | sms)
+ *   as text, enforced in the service like the cases status/stage vocabularies.
+ * - `client_id` is a nullable FK to contacts (the cases.client_id pattern —
+ *   the reference stores "" for "no client" and the API mapper renders ""
+ *   for null), existence-checked in the service (a dangling link must be
+ *   impossible where the reference would store one). Indexed — the thread
+ *   rows render the client's name via a client-side join, but per-client
+ *   queries (a client portal, V2) are the natural future path.
+ * - `case_id` is a nullable FK to cases (the events.case_id pattern), the
+ *   matter the conversation belongs to; existence-checked in the service.
+ * - `unread` is server-managed: created false (the reference hard-codes it)
+ *   and only ever moved by POST /threads/:id/read. There is no inbound
+ *   message surface in V1 (no client portal), so nothing else flips it.
+ *
+ * Soft delete per the baseline convention: threads are tenant content and a
+ * future archive route must need no migration; reads filter deleted_at and a
+ * deleted thread takes its messages' visibility with it (they are only ever
+ * addressed through the thread). No unique-ish business fields → no partial
+ * unique indexes (the contacts pattern).
+ */
+export const threads = pgTable(
+  "threads",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    firmId: uuid("firm_id")
+      .notNull()
+      .references(() => firms.id),
+    subject: text("subject").notNull().default("(no subject)"),
+    clientId: uuid("client_id").references(() => contacts.id),
+    caseId: uuid("case_id").references(() => cases.id),
+    channel: text("channel").notNull().default("secure"),
+    unread: boolean("unread").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("threads_firm_id_idx").on(table.firmId),
+    index("threads_client_id_idx").on(table.clientId),
+    index("threads_case_id_idx").on(table.caseId),
+  ],
+);
+
+/**
+ * Thread messages (ticket 20) — the entries inside a conversation. Column set
+ * mirrors the contract's MessageThread.messages entry (types.ts) 1:1 with one
+ * deliberate extra: `seq`, the DB-only insertion-order stamp (the
+ * trust_transactions rationale — same-instant inserts and random UUID
+ * tie-breaks would scramble the "newest last" contract order; the API mapper
+ * whitelists seq out, the events.`source` seam treatment).
+ *
+ * - `"from"` is the contract's field name verbatim (firm | client) — a quoted
+ *   reserved word, exactly like events.start/end; the vocabulary lives as
+ *   text, enforced in the service.
+ * - `author_name` is the contract's `authorName`; `at` is a timestamptz (the
+ *   contract carries full ISO timestamps for messages — types.ts header note)
+ *   rendered back via toISOString().
+ * - `firm_id` is denormalized from the thread on purpose: every tenant table
+ *   carries it (ADR-0003), the truncate hygiene and firm-scoped message
+ *   queries read it directly, and the service only ever inserts through a
+ *   live in-firm thread, so it cannot drift.
+ *
+ * APPEND-ONLY (the lead_stage_history pattern): the contract defines no
+ * message edit/delete surface, conversations are never rewritten — so there
+ * is NO updated_at and NO deleted_at. Rows are a value set of their thread
+ * (the invoice_line_items rationale): they are only ever addressed through
+ * the thread, and a thread's soft delete hides them through the join.
+ */
+export const threadMessages = pgTable(
+  "thread_messages",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    firmId: uuid("firm_id")
+      .notNull()
+      .references(() => firms.id),
+    threadId: uuid("thread_id")
+      .notNull()
+      .references(() => threads.id),
+    /** Insertion-order stamp (see above) — DB-only, never in API responses. */
+    seq: bigserial("seq", { mode: "number" }).notNull(),
+    from: text("from").notNull().default("firm"),
+    authorName: text("author_name").notNull().default(""),
+    body: text("body").notNull().default(""),
+    at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("thread_messages_firm_id_idx").on(table.firmId),
+    index("thread_messages_thread_id_idx").on(table.threadId),
+  ],
+);
+
+/**
+ * Notifications (ticket 20) — the bell in the app shell. Column set mirrors
+ * the contract's Notification (types.ts) 1:1: `text` is the rendered sentence,
+ * `kind` is the contract's four-word vocabulary (info | payment | deadline |
+ * message) as text enforced wherever rows are written, `read` the only
+ * mutable field (POST /notifications/read marks ALL of the firm's rows), and
+ * `at` is a timestamptz rendered as a full ISO timestamp (the messages rule).
+ *
+ * Deliberate deltas: NO delete/update surface beyond the read flag (the
+ * contract defines none — notifications are transient bell data, terminal on
+ * read), so there is no deleted_at; the baseline updated_at stays because
+ * `read` mutates. V1 generates NO rows at runtime — the reference backend
+ * seeds three demo rows and has no generation rule (no client portal, no
+ * inbound message event), so production firms start with an empty bell and
+ * the table exists for the contract's surface plus the V2 generation rules
+ * (portal replies, gateway receipts). No unique-ish fields → no partial
+ * unique indexes (the contacts pattern).
+ */
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    firmId: uuid("firm_id")
+      .notNull()
+      .references(() => firms.id),
+    text: text("text").notNull(),
+    kind: text("kind").notNull().default("info"),
+    read: boolean("read").notNull().default(false),
+    at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("notifications_firm_id_idx").on(table.firmId)],
+);
+
 export const firmsRelations = relations(firms, ({ many }) => ({
   users: many(users),
   sessions: many(sessions),
@@ -986,4 +1120,20 @@ export const documentsRelations = relations(documents, ({ one }) => ({
 
 export const emailOutboxRelations = relations(emailOutbox, ({ one }) => ({
   firm: one(firms, { fields: [emailOutbox.firmId], references: [firms.id] }),
+}));
+
+export const threadsRelations = relations(threads, ({ one, many }) => ({
+  firm: one(firms, { fields: [threads.firmId], references: [firms.id] }),
+  client: one(contacts, { fields: [threads.clientId], references: [contacts.id] }),
+  kase: one(cases, { fields: [threads.caseId], references: [cases.id] }),
+  messages: many(threadMessages),
+}));
+
+export const threadMessagesRelations = relations(threadMessages, ({ one }) => ({
+  firm: one(firms, { fields: [threadMessages.firmId], references: [firms.id] }),
+  thread: one(threads, { fields: [threadMessages.threadId], references: [threads.id] }),
+}));
+
+export const notificationsRelations = relations(notifications, ({ one }) => ({
+  firm: one(firms, { fields: [notifications.firmId], references: [firms.id] }),
 }));

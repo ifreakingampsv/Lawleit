@@ -29,6 +29,10 @@ import { TrustService } from "../services/trust/service.js";
 import { trustRoutes } from "./trust.js";
 import { LeadsService } from "../services/leads/service.js";
 import { leadRoutes } from "./leads.js";
+import { CommsService } from "../services/comms/service.js";
+import { commsRoutes } from "./comms.js";
+import { ReportsService } from "../services/reports/service.js";
+import { reportsRoutes } from "./reports.js";
 import { DB_REQUIRED, extractToken, requireAuth } from "./requestAuth.js";
 
 export type ProtectedRoutesOptions = {
@@ -117,6 +121,8 @@ export async function protectedRoutes(
   const documentsService = repos
     ? new DocumentsService(repos, options.storage ?? null, options.maxUploadBytes)
     : null;
+  const commsService = repos ? new CommsService(repos) : null;
+  const reportsService = repos ? new ReportsService() : null;
 
   // The guard guarantees services exist whenever a handler runs; the helper
   // narrows the types without assertions.
@@ -192,4 +198,13 @@ export async function protectedRoutes(
   // a short-lived signed PUT, download a signed GET; both answer 503 when
   // storage is unconfigured) — same guard, same every-member-manages rule.
   await app.register(documentRoutes, { documentsService });
+
+  // Ticket 20: the communications surface (routes/comms.ts) — threads with
+  // embedded messages (201 create / 200 whole-thread append / 204 read
+  // marks) and the notification bell — plus routes/reports.ts, the static
+  // predefined-report catalog (the analytics compute client-side; see the
+  // reports service for the shape decision) — same guard, same
+  // every-member-manages rule.
+  await app.register(commsRoutes, { commsService });
+  await app.register(reportsRoutes, { reportsService });
 }
