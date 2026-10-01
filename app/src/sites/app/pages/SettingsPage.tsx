@@ -92,15 +92,17 @@ export default function SettingsPage() {
             </div>
             <button className="rounded-full bg-lawleit px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-lawleit-dark">Upgrade plan</button>
           </div>
-          <div className="mt-4 rounded-xl border border-dashed border-neutral-300 p-5">
-            <p className="text-[13.5px] font-bold text-neutral-800">Connect your backend</p>
-            <p className="mt-1 text-[13px] leading-relaxed text-neutral-500">
-              This build ships with a mock adapter (localStorage). To go live, implement
-              <code className="mx-1 rounded bg-neutral-100 px-1.5 py-0.5 font-mono text-[12px]">src/lib/data/httpAdapter.ts</code>
-              against <code className="mx-1 rounded bg-neutral-100 px-1.5 py-0.5 font-mono text-[12px]">docs/API_CONTRACT.md</code>
-              and flip the adapter in <code className="mx-1 rounded bg-neutral-100 px-1.5 py-0.5 font-mono text-[12px]">src/lib/data/index.ts</code>.
-            </p>
-          </div>
+          {apiMode === "mock" && (
+            <div className="mt-4 rounded-xl border border-dashed border-neutral-300 p-5">
+              <p className="text-[13.5px] font-bold text-neutral-800">Connect your backend</p>
+              <p className="mt-1 text-[13px] leading-relaxed text-neutral-500">
+                This build ships with a mock adapter (localStorage). To go live, implement
+                <code className="mx-1 rounded bg-neutral-100 px-1.5 py-0.5 font-mono text-[12px]">src/lib/data/httpAdapter.ts</code>
+                against <code className="mx-1 rounded bg-neutral-100 px-1.5 py-0.5 font-mono text-[12px]">docs/API_CONTRACT.md</code>
+                and flip the adapter in <code className="mx-1 rounded bg-neutral-100 px-1.5 py-0.5 font-mono text-[12px]">src/lib/data/index.ts</code>.
+              </p>
+            </div>
+          )}
         </Card>
 
         {apiMode === "mock" && <DemoDataCard />}
