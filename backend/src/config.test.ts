@@ -25,6 +25,7 @@ describe("loadConfig", () => {
         resendApiKey: null,
         baseUrl: "http://localhost:5173",
       },
+      gatewayEncryptionKey: null,
     });
   });
 
@@ -132,5 +133,32 @@ describe("loadConfig", () => {
   it("treats a blank RESEND_API_KEY as unset (console sender, not an empty bearer token)", () => {
     const config = loadConfig({ SESSION_SECRET: "s3cret", RESEND_API_KEY: "   " });
     expect(config.email.resendApiKey).toBeNull();
+  });
+
+  // V2 slice 1 (ticket 02): the gateway encryption key is optional as a group
+  // of one — unset means the gateway surface is inert (503s, boot succeeds);
+  // a too-short key is a misconfiguration that fails boot naming the variable.
+  it("treats GATEWAY_ENCRYPTION_KEY as optional (null → the gateway feature stays inert)", () => {
+    const config = loadConfig({ SESSION_SECRET: "s3cret" });
+    expect(config.gatewayEncryptionKey).toBeNull();
+  });
+
+  it("parses GATEWAY_ENCRYPTION_KEY when set (trimmed)", () => {
+    const config = loadConfig({
+      SESSION_SECRET: "s3cret",
+      GATEWAY_ENCRYPTION_KEY: "  0123456789abcdef0123456789abcdef  ",
+    });
+    expect(config.gatewayEncryptionKey).toBe("0123456789abcdef0123456789abcdef");
+  });
+
+  it("treats a blank GATEWAY_ENCRYPTION_KEY as unset", () => {
+    const config = loadConfig({ SESSION_SECRET: "s3cret", GATEWAY_ENCRYPTION_KEY: "   " });
+    expect(config.gatewayEncryptionKey).toBeNull();
+  });
+
+  it("fails boot naming GATEWAY_ENCRYPTION_KEY when the key is too short (weak keys are a misconfiguration, not a mode)", () => {
+    expect(() =>
+      loadConfig({ SESSION_SECRET: "s3cret", GATEWAY_ENCRYPTION_KEY: "too-short" }),
+    ).toThrow(/GATEWAY_ENCRYPTION_KEY/);
   });
 });

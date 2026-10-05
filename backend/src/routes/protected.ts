@@ -33,6 +33,8 @@ import { CommsService } from "../services/comms/service.js";
 import { commsRoutes } from "./comms.js";
 import { ReportsService } from "../services/reports/service.js";
 import { reportsRoutes } from "./reports.js";
+import { GatewayAccountService } from "../services/gateway/service.js";
+import { gatewayRoutes } from "./gateway.js";
 import { DB_REQUIRED, extractToken, requireAuth } from "./requestAuth.js";
 
 export type ProtectedRoutesOptions = {
@@ -45,6 +47,9 @@ export type ProtectedRoutesOptions = {
   storage?: StorageService | null;
   /** Ticket 17: the sign-upload size cap in bytes (default 25 MB). */
   maxUploadBytes?: number;
+  /** V2 slice 1 (ticket 02): the gateway-secrets encryption key; null/absent
+   * = GATEWAY_ENCRYPTION_KEY is unset and the gateway writes answer 503. */
+  gatewayEncryptionKey?: string | null;
 };
 
 // zod strips unknown keys, so whole-entity saves from the UI (which send id
@@ -123,6 +128,9 @@ export async function protectedRoutes(
     : null;
   const commsService = repos ? new CommsService(repos) : null;
   const reportsService = repos ? new ReportsService() : null;
+  const gatewayAccountService = repos
+    ? new GatewayAccountService(repos, options.gatewayEncryptionKey ?? null)
+    : null;
 
   // The guard guarantees services exist whenever a handler runs; the helper
   // narrows the types without assertions.
@@ -207,4 +215,11 @@ export async function protectedRoutes(
   // every-member-manages rule.
   await app.register(commsRoutes, { commsService });
   await app.register(reportsRoutes, { reportsService });
+
+  // V2 slice 1: the gateway account surface (routes/gateway.ts) — connect/
+  // status/disconnect of the firm's own Razorpay account (owner-only writes,
+  // member-readable status, 503 writes without GATEWAY_ENCRYPTION_KEY) — same
+  // guard. The public webhook route lives in routes/index.ts (server-to-server,
+  // no session); the collect surface joins in ticket 03.
+  await app.register(gatewayRoutes, { gatewayAccountService });
 }

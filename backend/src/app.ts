@@ -107,6 +107,7 @@ export async function buildApp(
     cookie: { sameSite: config.cookieSameSite, secure: config.cookieSecure },
     storage,
     maxUploadBytes: config.storage?.maxUploadBytes,
+    gatewayEncryptionKey: config.gatewayEncryptionKey,
   });
   // The reference backend also serves /health prefixless; the smoke suite and
   // the vite proxy rely on both forms.

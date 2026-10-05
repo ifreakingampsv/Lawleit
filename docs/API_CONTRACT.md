@@ -97,6 +97,13 @@ abbreviated — trust the TypeScript interface `LawleitApi` in `src/lib/data/api
 | GET | /reports | `listReports()` | predefined report descriptors |
 | GET | /notifications | `listNotifications()` | |
 | POST | /notifications/read | `markNotificationsRead()` | 204 |
+| GET | /gateway/account | `getGatewayAccount()` | status shape only — never a secret (V2 slice 1; see below) |
+| PUT | /gateway/account | `connectGatewayAccount(body)` | owner-only connect/replace; secrets write-only (V2 slice 1) |
+| DELETE | /gateway/account | `disconnectGatewayAccount()` | owner-only; 204 (V2 slice 1) |
+| POST | /invoices/:id/payment-link | `createPaymentLink(invoiceId)` | collect via the firm's gateway; paid → 409, no gateway → 503 (V2 slice 1) |
+| GET | /invoices/:id/payment-links | `listPaymentLinks(invoiceId)` | link history, newest first (V2 slice 1) |
+| POST | /payment-links/:id/sync | `syncPaymentLink(id)` | reconciliation self-heal; → `{ status, recorded }` (V2 slice 1) |
+| POST | /webhooks/razorpay/:firmId | — | public server-to-server webhook; mandatory HMAC signature (V2 slice 1) |
 
 ## V1 cutover additions (2026-10)
 
@@ -154,6 +161,71 @@ routes, `POST /users`, or the documents upload/download flow — the items marke
   catalog carry no production data in V1. (The production Reports page's revenue
   analytics compute from real invoices/time entries; the descriptor route is the
   only missing piece there.)
+
+## V2 slice 1 additions (2026-10) — collecting payments via Indian rails
+
+The production backend implements these (migration 0012: `gateway_accounts`;
+`payment_links` and `gateway_events` arrive with the collect/webhook tickets in
+the same slice); the reference server implements the
+not-connected surface so the smoke suite certifies both. Per-firm Razorpay
+bring-your-own-keys (ADR-0006): money settles into the firm's own bank —
+Lawleit never holds or routes funds. The provider sits behind a thin
+GatewayService seam (create link, fetch link), so a future provider/model swap
+is an implementation change, not a redesign.
+
+- **Gateway account** — the firm's own Razorpay account, connected once by the
+  owner (Settings, owner-only).
+  - `GET /gateway/account` → 200 status shape only:
+    `{ connected: boolean, provider: string | null, keyId: string | null,
+    enabled: boolean, connectedAt: string | null }` (not connected:
+    all-null/false). `connectedAt` is a full ISO timestamp. **No response on
+    this surface ever carries `keySecret` or `webhookSecret`** — secrets are
+    write-only.
+  - `PUT /gateway/account` (owner-only; members 403 "Only the firm owner can
+    manage the payments gateway") — connect/replace (rotate keys), one account
+    per firm. Body `{ provider?, keyId, keySecret, webhookSecret }`
+    (`provider` defaults to and currently must be `razorpay`; blank key fields
+    → 400 "Key id, key secret, and webhook secret are required") → 200 the
+    status shape. Secrets are stored AES-256-GCM-encrypted at rest
+    (`GATEWAY_ENCRYPTION_KEY`), never returned, never logged.
+  - `DELETE /gateway/account` (owner-only) → 204; soft delete (the audit row
+    stays; the firm can connect again). Not connected → 404.
+  - **Without `GATEWAY_ENCRYPTION_KEY`** every gateway WRITE answers
+    `503 { error: "Payments gateway not configured — set
+    GATEWAY_ENCRYPTION_KEY (see .env.example)" }`; boot succeeds and the
+    status read keeps working (the feature is inert until the operator sets
+    the key — the S3_*/Resend optional-env pattern).
+- **Collect via payment link** — any firm user creates a Razorpay Payment
+  Link for a draft/sent/overdue invoice through the firm's connected account.
+  - `POST /invoices/:id/payment-link` → 201 the link shape
+    `{ id, invoiceId, provider, providerLinkId, shortUrl, amount, status,
+    createdAt }` (amount = the invoice's outstanding total in integer paise;
+    `createdAt` a full ISO timestamp). A paid invoice → 409 "Invoice is
+    already paid"; unknown/foreign/soft-deleted invoice → 404 "Invoice not
+    found"; the firm has no connected gateway (or the operator has no
+    encryption key) → 503 `{ error: "No payment gateway connected — the firm
+    owner must connect one in Settings" }` (the owner-step copy).
+  - `GET /invoices/:id/payment-links` → 200 link history, newest first; 404
+    for a foreign/unknown invoice.
+  - `POST /payment-links/:id/sync` → 200 `{ status, recorded }` — the
+    server re-fetches the link from Razorpay and, if paid-but-unrecorded
+    (a webhook lost to an API cold start), records the payment through the
+    same service path as the webhook; already-recorded links sync as a no-op.
+    Cross-firm/unknown link → 404; no connected gateway → 503.
+- **Webhook** — `POST /webhooks/razorpay/:firmId` is PUBLIC and
+  unauthenticated (server-to-server; mounted outside the session guard):
+  Razorpay calls it with `payment_link.paid` / `payment.failed` events. The
+  `X-Razorpay-Signature` HMAC-SHA256 header is verified against the URL-named
+  firm's webhook secret — mismatch → 400 (empty `{}` body), unknown firm →
+  404; a valid signature from firm A's secret cannot touch firm B's link
+  (cross-firm 404). Events are deduped on the provider event id (`gateway_events`
+  unique per provider) — a replayed delivery is a no-op 2xx. `payment_link.paid`
+  records a Payment with the real instrument mapped into the widened method
+  vocabulary (upi/netbanking/card), `trustAccount` hard-wired false, and the
+  same-transaction invoice roll-up as a manual record; `payment.failed` and
+  expiry events append to the event ledger only.
+- **Payment methods** — the vocabulary is `card | echeck | wallet | upi |
+  netbanking` everywhere (the V1 cutover widening stands).
 
 ## Server-side responsibilities (the mock does these client-side)
 

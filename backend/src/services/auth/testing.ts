@@ -23,6 +23,8 @@ import { InMemoryTimeEntryRepository } from "../time/in-memory.js";
 import type { TimeEntryRow } from "../time/repository.js";
 import { InMemoryExpenseRepository } from "../expenses/in-memory.js";
 import type { ExpenseRow } from "../expenses/repository.js";
+import { InMemoryGatewayAccountRepository } from "../gateway/in-memory.js";
+import type { GatewayAccountRow } from "../gateway/repository.js";
 import {
   InMemoryInvoiceLineRepository,
   InMemoryInvoiceNumberRepository,
@@ -226,6 +228,7 @@ interface Store {
   threads: ThreadRow[];
   threadMessages: ThreadMessageRow[];
   notifications: NotificationRow[];
+  gatewayAccounts: GatewayAccountRow[];
 }
 
 /**
@@ -261,6 +264,7 @@ export function inMemoryAuthRepositories(): AuthRepositories {
     threads: [],
     threadMessages: [],
     notifications: [],
+    gatewayAccounts: [],
   };
   const repos: AuthRepositories = {
     firms: new InMemoryFirmRepository(store),
@@ -285,6 +289,7 @@ export function inMemoryAuthRepositories(): AuthRepositories {
     threads: new InMemoryThreadRepository(store.threads),
     threadMessages: new InMemoryThreadMessageRepository(store.threadMessages),
     notifications: new InMemoryNotificationRepository(store.notifications),
+    gatewayAccounts: new InMemoryGatewayAccountRepository(store.gatewayAccounts),
     async transaction(work) {
       return work(repos);
     },

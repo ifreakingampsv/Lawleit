@@ -31,6 +31,8 @@ import { sql } from "drizzle-orm";
  * Ticket 17 table: documents.
  * Ticket 18 table: email_outbox.
  * Ticket 20 tables: threads, thread_messages, notifications.
+ * V2 slice 1 tables: gateway_accounts (ticket 02), payment_links (ticket 03),
+ * gateway_events (ticket 04).
  *
  * Conventions (drizzle/README.md): snake_case names, uuid primary keys with
  * gen_random_uuid() defaults, firm_id uuid not null + index on every tenant
@@ -1018,6 +1020,53 @@ export const notifications = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("notifications_firm_id_idx").on(table.firmId)],
+);
+
+/**
+ * Gateway accounts (V2 slice 1, ticket 02) — the firm's own Razorpay account,
+ * connected by the owner pasting its API keys (ADR-0006: bring-your-own-keys;
+ * money settles into the firm's bank, Lawleit never touches it). One per firm
+ * — the partial unique index on firm_id of live rows (the
+ * cases_firm_number_live_key pattern) enforces it while a disconnect's soft
+ * delete frees the firm to connect again.
+ *
+ * - `key_secret` / `webhook_secret` are AES-256-GCM ciphertexts (random IV,
+ *   base64 iv‖tag‖text, key derived from GATEWAY_ENCRYPTION_KEY — see
+ *   services/gateway/encryption.ts), never the plaintexts: a database leak
+ *   yields no usable Razorpay credentials. They are write-only over the API —
+ *   the service mappers whitelist them out of every response, and the
+ *   plaintexts exist only in memory for gateway calls, never in logs.
+ * - `provider` is text with its vocabulary (razorpay — the only value this
+ *   slice) enforced in the service; a second provider is an implementation
+ *   swap behind the GatewayService seam, not a migration.
+ * - `connected_at` is the operator-facing "since when" stamp the status shape
+ *   exposes (updated on every connect/replace); the bookkeeping stamps follow
+ *   the baseline conventions. Soft delete on disconnect — the row stays so
+ *   the audit trail keeps its past connections.
+ */
+export const gatewayAccounts = pgTable(
+  "gateway_accounts",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    firmId: uuid("firm_id")
+      .notNull()
+      .references(() => firms.id),
+    provider: text("provider").notNull().default("razorpay"),
+    keyId: text("key_id").notNull(),
+    keySecret: text("key_secret").notNull(),
+    webhookSecret: text("webhook_secret").notNull(),
+    enabled: boolean("enabled").notNull().default(true),
+    connectedAt: timestamp("connected_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("gateway_accounts_firm_id_idx").on(table.firmId),
+    uniqueIndex("gateway_accounts_firm_id_live_key")
+      .on(table.firmId)
+      .where(sql`deleted_at is null`),
+  ],
 );
 
 export const firmsRelations = relations(firms, ({ many }) => ({

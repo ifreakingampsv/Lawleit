@@ -148,6 +148,7 @@ describe("createEmailDelivery (config → binding)", () => {
     cookieSecure: false,
     storage: null,
     email,
+    gatewayEncryptionKey: null,
   };
   it("a full AppConfig literal (as buildApp consumes) includes email", () => {
     expect(config.email.resendApiKey).toBeNull();

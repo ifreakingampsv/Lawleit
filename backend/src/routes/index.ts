@@ -21,6 +21,9 @@ export type ApiRoutesOptions = {
   storage?: StorageService | null;
   /** Ticket 17: the sign-upload size cap in bytes (default 25 MB). */
   maxUploadBytes?: number;
+  /** V2 slice 1 (ticket 02): the gateway-secrets encryption key; null/absent
+   * = GATEWAY_ENCRYPTION_KEY is unset and the gateway writes answer 503. */
+  gatewayEncryptionKey?: string | null;
 };
 
 /**
@@ -49,6 +52,7 @@ export async function apiRoutes(
     mailer: options.mailer,
     storage: options.storage,
     maxUploadBytes: options.maxUploadBytes,
+    gatewayEncryptionKey: options.gatewayEncryptionKey,
   });
   await app.register(healthRoutes, { db: options.db ?? null });
 }

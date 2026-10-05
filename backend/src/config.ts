@@ -69,6 +69,22 @@ const envSchema = z.object({
   // Base URL for the links inside email bodies (reset/invite). Frontend base,
   // not the API base — links open the app's /reset-password route.
   APP_BASE_URL: z.string().trim().min(1).default("http://localhost:5173"),
+  // V2 slice 1 — payments gateway (ticket 02). OPTIONAL as a group of one (the
+  // S3_/Resend pattern): unset = the API boots fine and the gateway surface is
+  // inert (connect/collect routes answer 503 with the operator step; the
+  // feature activates purely by setting the key). A key SHORTER than 32
+  // characters is a misconfiguration, not a mode — it fails boot naming the
+  // variable, because a weak encryption key cannot protect the Razorpay
+  // secrets it encrypts at rest (AES-256-GCM; the raw value is hashed to the
+  // 32-byte key, so any charset works — length is the entropy floor).
+  GATEWAY_ENCRYPTION_KEY: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+    z
+      .string()
+      .trim()
+      .min(32, "GATEWAY_ENCRYPTION_KEY must be at least 32 characters")
+      .optional(),
+  ),
 });
 
 /** Object-storage connection (ticket 17) — see config.ts S3_* notes. */
@@ -104,6 +120,9 @@ export interface AppConfig {
   storage?: StorageConfig | null;
   /** Ticket 18: email delivery knobs (from/sender key/link base URL). */
   email: EmailConfig;
+  /** V2 slice 1 (ticket 02): null when GATEWAY_ENCRYPTION_KEY is unset — the
+   * gateway write routes answer 503 and the feature stays inert. */
+  gatewayEncryptionKey: string | null;
 }
 
 /**
@@ -168,5 +187,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     cookieSecure: COOKIE_SECURE,
     storage,
     email,
+    gatewayEncryptionKey: parsed.data.GATEWAY_ENCRYPTION_KEY ?? null,
   };
 }

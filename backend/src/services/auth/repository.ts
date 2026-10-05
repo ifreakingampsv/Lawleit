@@ -27,6 +27,9 @@ import type { TaskRepository } from "../tasks/repository.js";
 import type { TimeEntryRepository } from "../time/repository.js";
 import type { ExpenseRepository } from "../expenses/repository.js";
 import type {
+  GatewayAccountRepository,
+} from "../gateway/repository.js";
+import type {
   InvoiceLineRepository,
   InvoiceNumberRepository,
   InvoiceRepository,
@@ -234,5 +237,9 @@ export interface AuthRepositories {
   threads: ThreadRepository;
   threadMessages: ThreadMessageRepository;
   notifications: NotificationRepository;
+  /** V2 slice 1 (ticket 02): the firm's one gateway account rides the same
+   * aggregate and transaction seam — the connect/replace upsert commits
+   * atomically (the partial unique firm_id index guards the invariant). */
+  gatewayAccounts: GatewayAccountRepository;
   transaction<T>(work: (repos: AuthRepositories) => Promise<T>): Promise<T>;
 }
