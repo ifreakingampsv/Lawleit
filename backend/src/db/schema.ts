@@ -627,11 +627,12 @@ export const leads = pgTable(
  *
  * - `amount` is bigint integer paise, service-validated > 0 (the ticket's
  *   rule; the reference would store anything).
- * - `method` is the contract's exact vocabulary — "card" | "echeck" | "wallet"
- *   (default "card", the reference's `b.method ?? "card"`). The ticket floats
- *   "bank transfer/UPI/cheque" as the V2 seam, but the contract is the spec
- *   and its Payment.method vocabulary is card/echeck/wallet; when V2 lands
- *   Indian rails the vocabulary widens THERE, not by inventing values now.
+ * - `method` is the contract's exact vocabulary — "card" | "echeck" | "wallet" |
+ *   "upi" | "netbanking" (default "card", the reference's `b.method ?? "card"`).
+ *   The V1 ticket floated "bank transfer/UPI/cheque" as the V2 seam; V2 slice 1
+ *   widened the contract THERE (upi/netbanking — Indian rails), keeping the
+ *   vocabulary contract-owned rather than invented ad hoc. "cheque" remains
+ *   deliberately outside the vocabulary in slice 1.
  * - `status` carries the contract's pending/deposited/failed vocabulary but is
  *   server-managed: V1 records always land "deposited" (the reference
  *   hard-codes it; no client path writes pending/failed). The roll-up's

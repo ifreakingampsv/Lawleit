@@ -6,7 +6,7 @@ import { PAYMENT_METHODS, toApiPayment } from "./repository.js";
 import { trustDepositDescription } from "../trust/service.js";
 
 /** Shown (as a 400) when `method` is not in the contract's vocabulary. */
-export const PAYMENT_METHOD_MESSAGE = "Method must be card, echeck, or wallet";
+export const PAYMENT_METHOD_MESSAGE = "Method must be card, echeck, wallet, upi, or netbanking";
 /** Shown (as a 400) when `amount` is not a whole positive paise amount. */
 export const PAYMENT_AMOUNT_MESSAGE = "Amount must be a positive integer";
 /** Shown (as a 400) when an invoiceId is not a uuid — the column is a uuid FK. */

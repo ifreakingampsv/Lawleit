@@ -10,8 +10,8 @@
  * leaks existence. The payments tests assert that.
  */
 
-/** The method vocabulary of the API contract (app/src/lib/data/types.ts Payment.method). */
-export const PAYMENT_METHODS = ["card", "echeck", "wallet"] as const;
+/** The method vocabulary of the API contract (app/src/lib/data/types.ts Payment.method). V2 slice 1 widened it with the Indian rails (upi/netbanking). */
+export const PAYMENT_METHODS = ["card", "echeck", "wallet", "upi", "netbanking"] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
 /**

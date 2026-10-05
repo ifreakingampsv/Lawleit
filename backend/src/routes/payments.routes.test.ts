@@ -369,7 +369,7 @@ describe("payments (ticket 14)", () => {
     await app.close();
   });
 
-  it("validation: amount and method 400s before anything is written; the vocabulary is the contract's (card/echeck/wallet)", async () => {
+  it("validation: amount and method 400s before anything is written; the vocabulary is the contract's (card/echeck/wallet/upi/netbanking)", async () => {
     await setup();
     const invoice = await createInvoice(app, firmA.token);
     for (const [payload, message] of [
@@ -378,7 +378,7 @@ describe("payments (ticket 14)", () => {
       [{ invoiceId: invoice.id, amount: 10.5 }, PAYMENT_AMOUNT_MESSAGE],
       [{ invoiceId: invoice.id }, PAYMENT_AMOUNT_MESSAGE], // absent amount
       [{ invoiceId: invoice.id, amount: 1_000_000_001 }, PAYMENT_AMOUNT_MESSAGE],
-      [{ invoiceId: invoice.id, amount: 100, method: "upi" }, PAYMENT_METHOD_MESSAGE],
+      [{ invoiceId: invoice.id, amount: 100, method: "cheque" }, PAYMENT_METHOD_MESSAGE], // deliberately outside the vocabulary in slice 1
       [{ invoiceId: invoice.id, amount: 100, method: "bank transfer" }, PAYMENT_METHOD_MESSAGE],
       [{ invoiceId: invoice.id, amount: 100, clientId: "c1" }, PAYMENT_CLIENT_MESSAGE],
       [{ invoiceId: "k1", amount: 100 }, PAYMENT_INVOICE_MESSAGE],
@@ -387,7 +387,6 @@ describe("payments (ticket 14)", () => {
       expect(res.statusCode, JSON.stringify(payload)).toBe(400);
       expect(res.body).toEqual({ error: message });
     }
-
     // Route-level shape rejects: a NaN/string amount never reaches the service.
     for (const amount of [Number.NaN, "100"]) {
       const res = await postPayment(app, firmA.token, { invoiceId: invoice.id, amount });
@@ -397,6 +396,14 @@ describe("payments (ticket 14)", () => {
     // Nothing was written by any failed record.
     expect(await repos.payments.listByFirm(firmA.firmId)).toEqual([]);
     expect(await invoiceStatus(app, firmA.token, invoice.id)).toBe("draft");
+
+    // V2 slice 1: the widened Indian-rails vocabulary records like any other
+    // method — asserted last so the nothing-written check above stays exact.
+    for (const method of ["upi", "netbanking"] as const) {
+      const res = await postPayment(app, firmA.token, { invoiceId: invoice.id, amount: 100, method });
+      expect(res.statusCode, method).toBe(201);
+      expect(res.body.method).toBe(method);
+    }
     await app.close();
   });
 

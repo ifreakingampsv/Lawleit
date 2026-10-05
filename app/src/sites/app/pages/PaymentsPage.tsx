@@ -17,7 +17,7 @@ export default function PaymentsPage() {
       invoiceId: form.invoiceId,
       clientId: iv?.clientId,
       amount: rupeesToPaise(Number(form.amount)) || 0,
-      method: form.method as "card" | "echeck" | "wallet",
+      method: form.method as "card" | "echeck" | "wallet" | "upi" | "netbanking",
       trustAccount: form.trustAccount,
     });
     setCreating(false);
@@ -70,7 +70,7 @@ export default function PaymentsPage() {
             <Field label="Amount (₹)"><input data-testid="payment-amount" type="number" className={inputCls} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></Field>
             <Field label="Method">
               <select data-testid="payment-method" className={inputCls} value={form.method} onChange={(e) => setForm({ ...form, method: e.target.value })}>
-                {["card", "echeck", "wallet"].map((m) => <option key={m} value={m}>{m}</option>)}
+                {["card", "echeck", "wallet", "upi", "netbanking"].map((m) => <option key={m} value={m}>{m}</option>)}
               </select>
             </Field>
           </div>

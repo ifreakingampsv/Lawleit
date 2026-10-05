@@ -77,7 +77,7 @@ abbreviated — trust the TypeScript interface `LawleitApi` in `src/lib/data/api
 | PATCH | /invoices/:id | `updateInvoice(id, patch)` | status: draft → sent → paid (overdue derived from `due`) |
 | DELETE | /invoices/:id | `deleteInvoice(id)` | |
 | GET | /payments | `listPayments()` | |
-| POST | /payments | `recordPayment(body)` | server updates invoice status; `trustAccount` routes to trust ledger |
+| POST | /payments | `recordPayment(body)` | server updates invoice status; `trustAccount` routes to trust ledger; `method` ∈ card \| echeck \| wallet \| upi \| netbanking (V2 slice 1 widened — the contract owns the vocabulary, "cheque" deliberately excluded so far) |
 | GET | /trust/transactions | `listTrustTransactions()` | running `balanceAfter` per client |
 | GET | /documents | `listDocuments()` | metadata; every response carries `hasFile` (V1) |
 | POST | /documents | `createDocument(body)` | metadata create; additive optional body fields `sizeBytes`/`storageKey`/`mimeType` complete the upload flow (V1) |

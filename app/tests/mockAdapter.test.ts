@@ -109,6 +109,18 @@ describe("billing", () => {
     expect((await api.getInvoice(iv.id))?.status).toBe("paid");
   });
 
+  it("accepts the widened Indian-rails methods (upi, netbanking) — V2 slice 1", async () => {
+    const api = await fresh();
+    const iv = await api.createInvoice({
+      lines: [{ id: "l1", description: "Work", quantity: 1, rate: 50000, kind: "time" }],
+    });
+    const upi = await api.recordPayment({ invoiceId: iv.id, amount: 20000, method: "upi" });
+    expect(upi.method).toBe("upi");
+    const nb = await api.recordPayment({ invoiceId: iv.id, amount: 30000, method: "netbanking" });
+    expect(nb.method).toBe("netbanking");
+    expect((await api.getInvoice(iv.id))?.status).toBe("paid");
+  });
+
   it("a partially paid draft stays draft (never silently sent)", async () => {
     const api = await fresh();
     const iv = await api.createInvoice({

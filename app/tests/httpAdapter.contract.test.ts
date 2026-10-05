@@ -128,6 +128,17 @@ describe("billing — server-side responsibilities", () => {
     expect((await api.getInvoice(iv.id))?.status).toBe("paid");
   });
 
+  it("accepts the widened Indian-rails methods (upi, netbanking) — V2 slice 1", async () => {
+    const iv = await api.createInvoice({
+      lines: [{ id: "l1", description: "Work", quantity: 1, rate: 50000, kind: "time" }],
+    });
+    const upi = await api.recordPayment({ invoiceId: iv.id, amount: 20000, method: "upi" });
+    expect(upi.method).toBe("upi");
+    const nb = await api.recordPayment({ invoiceId: iv.id, amount: 30000, method: "netbanking" });
+    expect(nb.method).toBe("netbanking");
+    expect((await api.getInvoice(iv.id))?.status).toBe("paid");
+  });
+
   it("trust payments append ledger entries with running balanceAfter", async () => {
     const contact = await api.createContact({ name: "Contract Trust Client" });
     await api.recordPayment({ invoiceId: "", clientId: contact.id, amount: 50000, trustAccount: true });

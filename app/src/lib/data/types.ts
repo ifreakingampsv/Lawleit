@@ -152,7 +152,7 @@ export interface Payment {
   clientId: ID;
   date: string;
   amount: Paise;
-  method: "card" | "echeck" | "wallet";
+  method: "card" | "echeck" | "wallet" | "upi" | "netbanking";
   status: "pending" | "deposited" | "failed";
   trustAccount: boolean;
 }
