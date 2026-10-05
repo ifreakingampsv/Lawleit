@@ -11,9 +11,9 @@ UI or collect flow yet — that is what makes this a safe first slice.
 
 **Status:** ready-for-agent
 
-- [ ] `docs/API_CONTRACT.md` documents the widened vocabulary (card | echeck | wallet | upi | netbanking) including where it appears
-- [ ] Production backend accepts and stores the new values; unknown methods still 400 with the contract error envelope
-- [ ] Reference backend (`server.mjs`) accepts the new values 1:1 with the contract
-- [ ] Mock adapter type + validation widened; byte-shape parity holds across all three
-- [ ] Tests updated on all surfaces (parity pinned); full suites green (backend WITHOUT DATABASE_URL, app, smoke, typecheck both packages)
-- [ ] `npm run build` clean
+- [x] `docs/API_CONTRACT.md` documents the widened vocabulary (card | echeck | wallet | upi | netbanking) including where it appears
+- [x] Production backend accepts and stores the new values; unknown methods still 400 with the contract error envelope
+- [x] Reference backend (`server.mjs`) accepts the new values 1:1 with the contract (permissive by design — `method ?? "card"`; proven by the httpAdapter contract test driving it with upi/netbanking)
+- [x] Mock adapter type + validation widened; byte-shape parity holds across all three
+- [x] Tests updated on all surfaces (parity pinned); full suites green (backend WITHOUT DATABASE_URL, app, smoke, typecheck both packages) — backend 243/243 (db twins skipped), app 70/70, smoke 65/65
+- [x] `npm run build` clean
