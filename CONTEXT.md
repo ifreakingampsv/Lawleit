@@ -37,3 +37,25 @@ _Avoid_: company, organization, workspace, account
 The fictional seeded Indian firm portrayed by the Demo Version (Indian names,
 courts, rupees) — deliberately believable, never a real firm.
 _Avoid_: sample data, test account
+
+**Record** (a payment):
+A manual money-received entry made by a firm user against an invoice or as a
+trust deposit — the V1 flow. The user asserts money arrived; nothing is charged.
+_Avoid_: add payment, log payment
+
+**Collect** (a payment):
+Generating a payment link so the CLIENT pays through the firm's gateway — the
+V2 flow. The gateway page charges the client; a webhook records the result.
+_Avoid_: charge (Lawleit never charges — the firm's gateway does), request money
+
+**Payment Link**:
+A hosted gateway checkout URL for one invoice, created through the firm's own
+connected gateway account. Paying it records a payment through the same rules
+as a manual record.
+_Avoid_: invoice URL, pay button
+
+**Gateway Account**:
+A firm's own payment-gateway account (Razorpay), connected to Lawleit by the
+firm owner pasting its API keys. Money settles to the firm's bank; Lawleit
+never touches it. One per firm.
+_Avoid_: payment integration, Lawleit payments account
