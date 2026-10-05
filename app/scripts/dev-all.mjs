@@ -52,7 +52,9 @@ api.on("exit", (code) => console.log(`[${stamp()}] [api] exited (${code})`));
 pipe(api, "api");
 procs.push(api);
 
-const vite = spawn("npx", ["vite"], {
+// Vite is launched via node + its bin entry, not `npx`: npx is npx.cmd on
+// Windows and cannot be spawned directly without a shell.
+const vite = spawn(process.execPath, [path.join(root, "app", "node_modules", "vite", "bin", "vite.js")], {
   cwd: path.join(root, "app"),
   env: {
     ...process.env,
