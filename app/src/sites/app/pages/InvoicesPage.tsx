@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "@/lib/data";
 import { useAsync, fmtDate } from "@/lib/hooks";
 import { formatINR, paiseToRupees, rupeesToPaise } from "@/lib/money";
 import { Card, Modal, NewButton, PageHeader, Field, inputCls, StatusPill, Table } from "../ui";
-import type { InvoiceLine } from "@/lib/data";
+import type { InvoiceLine, PaymentLink } from "@/lib/data";
 
 const lineTotal = (l: InvoiceLine) => l.quantity * l.rate;
 
@@ -109,6 +109,7 @@ export default function InvoicesPage() {
                   className="flex-1 rounded-full bg-lawleit py-2.5 text-[14px] font-bold text-white hover:bg-lawleit-dark">Send invoice</button>
               )}
             </div>
+            {selected.status !== "paid" && <CollectLinksCard invoice={selected} onCollected={refetch} />}
           </div>
         )}
       </Modal>
@@ -150,6 +151,118 @@ export default function InvoicesPage() {
           <button data-testid="invoice-save" onClick={create} className="w-full rounded-full bg-lawleit py-2.5 text-[14px] font-bold text-white hover:bg-lawleit-dark">Create invoice</button>
         </div>
       </Modal>
+    </div>
+  );
+}
+
+/**
+ * Collect via payment link (V2 slice 1, ADR-0006): create a hosted gateway
+ * link for the invoice's outstanding amount and share it by copy or a
+ * prefilled WhatsApp message. Server errors pass through verbatim — the
+ * not-connected 503 IS the onboarding copy (the owner connects in Settings),
+ * the paid 409 and the provider 502 likewise. "Sync" is the cold-start
+ * self-heal: re-fetch the link's status and record a missed payment.
+ */
+function CollectLinksCard({
+  invoice,
+  onCollected,
+}: {
+  invoice: { id: string; number: string };
+  onCollected: () => void;
+}) {
+  const [links, setLinks] = useState<PaymentLink[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    setLinks(null);
+    setError(null);
+    api
+      .listPaymentLinks(invoice.id)
+      .then((rows) => { if (live) setLinks(rows); })
+      .catch(() => { if (live) setLinks([]); });
+    return () => { live = false; };
+  }, [invoice.id]);
+
+  const create = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const link = await api.createPaymentLink(invoice.id);
+      setLinks([link, ...(links ?? [])]);
+      onCollected();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't reach the server");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const sync = async (id: string) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const outcome = await api.syncPaymentLink(id);
+      setLinks(await api.listPaymentLinks(invoice.id));
+      if (outcome.recorded) onCollected();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't reach the server");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const copy = async (link: PaymentLink) => {
+    await navigator.clipboard.writeText(link.shortUrl);
+    setCopied(link.id);
+    window.setTimeout(() => setCopied(null), 2000);
+  };
+
+  const whatsapp = (link: PaymentLink) =>
+    `https://wa.me/?text=${encodeURIComponent(`Invoice ${invoice.number} — please pay via this secure link: ${link.shortUrl}`)}`;
+
+  return (
+    <div className="mt-4 rounded-xl border border-neutral-200 p-4" data-testid="collect-card">
+      <div className="flex items-center justify-between">
+        <p className="text-[13px] font-bold text-neutral-800">Collect via payment link</p>
+        <button
+          data-testid="collect-create"
+          onClick={() => void create()}
+          disabled={busy}
+          className="rounded-md bg-lawleit/10 px-2.5 py-1 text-[12px] font-bold text-lawleit hover:bg-lawleit/20 disabled:opacity-60"
+        >
+          Create payment link
+        </button>
+      </div>
+      {links !== null && links.length > 0 && (
+        <ul className="mt-3 space-y-2">
+          {links.map((l) => (
+            <li key={l.id} className="flex items-center gap-2 rounded-lg bg-neutral-50 px-3 py-2" data-testid="collect-link">
+              <StatusPill status={l.status} />
+              <span className="min-w-0 flex-1 truncate text-[12.5px] text-neutral-600">{l.shortUrl}</span>
+              {l.status === "active" && (
+                <>
+                  <button data-testid="collect-sync" onClick={() => void sync(l.id)} disabled={busy}
+                    className="text-[12px] font-bold text-neutral-500 hover:text-lawleit">Sync</button>
+                  <button data-testid="collect-whatsapp" onClick={() => window.open(whatsapp(l), "_blank")}
+                    className="rounded-md bg-emerald-100 px-2.5 py-1 text-[12px] font-bold text-emerald-700 hover:bg-emerald-200">WhatsApp</button>
+                  <button data-testid="collect-copy" onClick={() => void copy(l)}
+                    className="rounded-md bg-lawleit/10 px-2.5 py-1 text-[12px] font-bold text-lawleit hover:bg-lawleit/20">
+                    {copied === l.id ? "Copied ✓" : "Copy"}
+                  </button>
+                </>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {error && (
+        <p role="alert" data-testid="collect-error" className="mt-2 text-[12.5px] font-semibold text-red-600">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

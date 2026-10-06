@@ -1,7 +1,7 @@
 import { kindForFile, type LawleitApi } from "./api";
 import type {
-  CalendarEvent, Case, Contact, DocumentFile, Expense, Firm, Invoice,
-  Lead, MessageThread, Notification, Payment, ReportDef, Session, Task,
+  CalendarEvent, Case, Contact, DocumentFile, Expense, Firm, GatewayAccountStatus, Invoice,
+  Lead, MessageThread, Notification, Payment, PaymentLink, ReportDef, Session, Task,
   TimeEntry, TrustTransaction, User,
 } from "./types";
 
@@ -189,6 +189,30 @@ class HttpAdapter implements LawleitApi {
   listPayments() { return http<Payment[]>("GET", "/payments"); }
   recordPayment(input: Partial<Payment>) { return http<Payment>("POST", "/payments", { body: input }); }
   listTrustTransactions() { return http<TrustTransaction[]>("GET", "/trust/transactions"); }
+
+  // ---- gateway (V2 slice 1: collecting payments, ADR-0006) ----
+  getGatewayAccount() { return http<GatewayAccountStatus>("GET", "/gateway/account"); }
+  connectGatewayAccount(input: { provider?: string; keyId: string; keySecret: string; webhookSecret: string }) {
+    return http<GatewayAccountStatus>("PUT", "/gateway/account", { body: input });
+  }
+  disconnectGatewayAccount() { return http<void>("DELETE", "/gateway/account"); }
+  createPaymentLink(invoiceId: string) {
+    return http<PaymentLink>("POST", `/invoices/${invoiceId}/payment-link`);
+  }
+  listPaymentLinks(invoiceId: string) {
+    return http<PaymentLink[]>("GET", `/invoices/${invoiceId}/payment-links`);
+  }
+  syncPaymentLink(id: string) {
+    return http<{ status: PaymentLink["status"]; recorded: boolean }>("POST", `/payment-links/${id}/sync`);
+  }
+  // The bare-id lookup and the simulated pay exist in demo mode only: the
+  // contract exposes links per invoice, and real money moves at the provider.
+  getPaymentLink(): Promise<PaymentLink | null> {
+    return Promise.reject(new Error("Direct link lookup exists in demo mode only"));
+  }
+  payMockLink(): Promise<PaymentLink> {
+    return Promise.reject(new Error("The simulated gateway exists in demo mode only"));
+  }
 
   // ---- documents ----
   listDocuments() { return http<DocumentFile[]>("GET", "/documents"); }

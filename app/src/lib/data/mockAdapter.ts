@@ -1,7 +1,7 @@
 import { kindForFile, type LawleitApi } from "./api";
 import type {
-  CalendarEvent, Case, Contact, DocumentFile, Expense, Firm, Invoice,
-  Lead, MessageThread, Notification, Payment, ReportDef, Session, Task,
+  CalendarEvent, Case, Contact, DocumentFile, Expense, Firm, GatewayAccountStatus, Invoice,
+  Lead, MessageThread, Notification, Payment, PaymentLink, ReportDef, Session, Task,
   TimeEntry, TrustTransaction, User,
 } from "./types";
 import { formatINR0 } from "../money";
@@ -59,6 +59,10 @@ interface DB {
   threads: MessageThread[];
   leads: Lead[];
   notifications: Notification[];
+  /** V2 slice 1: the firm's hosted payment links (the simulated gateway). */
+  paymentLinks: PaymentLink[];
+  /** V2 slice 1: the demo gateway connection (secrets are never stored). */
+  gatewayAccount: GatewayAccountStatus | null;
 }
 
 function freshDb(): DB {
@@ -83,6 +87,8 @@ function freshDb(): DB {
       { id: nid("n"), text: "Deposition: Prem Lal tomorrow at 10:30 AM", at: new Date(Date.now() - 72e5).toISOString(), read: false, kind: "deadline" },
       { id: nid("n"), text: "New message from Harish Chadha", at: new Date(Date.now() - 180e5).toISOString(), read: false, kind: "message" },
     ],
+    paymentLinks: [],
+    gatewayAccount: null,
   };
 }
 
@@ -93,6 +99,9 @@ function loadDb(): DB {
       const db = JSON.parse(raw) as DB;
       // Databases persisted before ticket 17 predate the file-blob store.
       db.fileBlobs ??= {};
+      // Databases persisted before V2 slice 1 predate the gateway simulation.
+      db.paymentLinks ??= [];
+      db.gatewayAccount ??= null;
       return db;
     }
   } catch { /* corrupt or unavailable storage — reseed */ }
@@ -472,6 +481,97 @@ class MockAdapter implements LawleitApi {
     return p;
   }
   async listTrustTransactions() { this.withSession(); return this.db.trust; }
+
+  // ---- gateway (V2 slice 1: the SIMULATED gateway, ADR-0006) ----
+  // The demo stores the connection status only — secret material typed into
+  // the demo's connect form is never persisted anywhere (demo or not).
+  async getGatewayAccount() {
+    this.withSession();
+    return this.db.gatewayAccount
+      ?? { connected: false, provider: null, keyId: null, enabled: false, connectedAt: null };
+  }
+  async connectGatewayAccount(input: { provider?: string; keyId: string; keySecret: string; webhookSecret: string }) {
+    this.withSession();
+    void input.keySecret;
+    void input.webhookSecret;
+    this.db.gatewayAccount = {
+      connected: true,
+      provider: input.provider ?? "razorpay",
+      keyId: input.keyId,
+      enabled: true,
+      connectedAt: new Date().toISOString(),
+    };
+    this.save();
+    return this.db.gatewayAccount;
+  }
+  async disconnectGatewayAccount() {
+    this.withSession();
+    this.db.gatewayAccount = null;
+    this.save();
+  }
+  async createPaymentLink(invoiceId: string): Promise<PaymentLink> {
+    this.withSession();
+    const iv = this.db.invoices.find((i) => i.id === invoiceId);
+    if (!iv) throw new Error("Invoice not found");
+    if (iv.status === "paid") throw new Error("Invoice is already paid");
+    if (!this.db.gatewayAccount?.connected) {
+      throw new Error("No payment gateway connected — the firm owner must connect one in Settings");
+    }
+    const total = iv.lines.reduce((s, l) => s + l.quantity * l.rate, 0);
+    const paid = this.db.payments
+      .filter((x) => x.invoiceId === iv.id && x.status !== "failed")
+      .reduce((s, x) => s + x.amount, 0);
+    const outstanding = total - paid;
+    if (outstanding <= 0) throw new Error("Invoice is already paid");
+
+    const id = nid("pl");
+    const link: PaymentLink = {
+      id,
+      invoiceId,
+      provider: this.db.gatewayAccount.provider ?? "razorpay",
+      providerLinkId: nid("link"),
+      // The demo's short URL opens the simulated gateway page (the router
+      // mounts /pay/:id in mock mode only).
+      shortUrl: `${window.location.origin}/pay/${id}`,
+      amount: outstanding,
+      status: "active",
+      createdAt: new Date().toISOString(),
+    };
+    this.db.paymentLinks.unshift(link);
+    this.save();
+    return link;
+  }
+  async listPaymentLinks(invoiceId: string) {
+    this.withSession();
+    // unshift keeps the store newest-first.
+    return this.db.paymentLinks.filter((l) => l.invoiceId === invoiceId);
+  }
+  async syncPaymentLink(id: string) {
+    this.withSession();
+    const link = this.db.paymentLinks.find((l) => l.id === id);
+    if (!link) throw new Error("Payment link not found");
+    // In the simulation the client "pays" on the /pay page itself (which
+    // records and flips the link), so a sync never discovers anything new.
+    return { status: link.status as PaymentLink["status"], recorded: false };
+  }
+  async getPaymentLink(id: string) {
+    this.withSession();
+    return this.db.paymentLinks.find((l) => l.id === id) ?? null;
+  }
+  async payMockLink(id: string, method: Payment["method"]) {
+    this.withSession();
+    const link = this.db.paymentLinks.find((l) => l.id === id);
+    if (!link || link.status !== "active") throw new Error("Payment link not found");
+    // The SAME record path a manual record uses — roll-up and trust
+    // semantics identical, trustAccount hard-wired false (gateway money
+    // never touches trust, spec Q12).
+    await this.recordPayment({
+      invoiceId: link.invoiceId, amount: link.amount, method, trustAccount: false,
+    });
+    link.status = "paid";
+    this.save();
+    return link;
+  }
 
   // ---- documents ----
   async listDocuments() { this.withSession(); return this.db.documents; }

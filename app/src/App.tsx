@@ -19,6 +19,7 @@ import DocumentsPage from "./sites/app/pages/DocumentsPage";
 import CommunicationsPage from "./sites/app/pages/CommunicationsPage";
 import ReportsPage from "./sites/app/pages/ReportsPage";
 import SettingsPage from "./sites/app/pages/SettingsPage";
+import MockGatewayPage from "./sites/app/pages/MockGatewayPage";
 
 export default function App() {
   return (
@@ -30,6 +31,9 @@ export default function App() {
       <Route path="/free-trial" element={<FreeTrialPage />} />
       <Route path="/schedule-demo" element={<ScheduleDemoPage />} />
       <Route path="/coming-soon" element={<ComingSoonPage />} />
+      {/* V2 slice 1, ticket 07: the Demo Version's simulated gateway checkout.
+          Mock mode only (the page itself redirects http mode). */}
+      <Route path="/pay/:id" element={<MockGatewayPage />} />
 
       <Route path="/app" element={<AppShell />}>
         <Route index element={<Dashboard />} />

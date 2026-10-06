@@ -82,6 +82,7 @@ export default function SettingsPage() {
         </Card>
 
         {session?.user.role === "owner" && <InviteUserCard onInvited={() => void refetchUsers()} />}
+        {session?.user.role === "owner" && <GatewayCard />}
 
         <Card className="p-6">
           <CardTitle>Plan &amp; billing</CardTitle>
@@ -213,6 +214,137 @@ function InviteUserCard({ onInvited }: { onInvited: () => void }) {
           )}
         </div>
       </form>
+    </Card>
+  );
+}
+
+/**
+ * Owner-only payments gateway card (V2 slice 1, ADR-0006): connect or replace
+ * the firm's OWN Razorpay account by pasting its API keys. Secrets are
+ * write-only — the status shape never carries them back, so the form starts
+ * empty on every visit and only the key id is shown as a hint. Server
+ * messages pass through verbatim (the invite rule): the 403 owner gate, the
+ * 400 field message, and the operator's 503 "set GATEWAY_ENCRYPTION_KEY".
+ */
+function GatewayCard() {
+  const { data: account, refetch } = useAsync(() => api.getGatewayAccount(), []);
+  const [keyId, setKeyId] = useState("");
+  const [keySecret, setKeySecret] = useState("");
+  const [webhookSecret, setWebhookSecret] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    setSaved(false);
+    try {
+      await api.connectGatewayAccount({ keyId, keySecret, webhookSecret });
+      setSaved(true);
+      setKeySecret("");
+      setWebhookSecret("");
+      refetch();
+    } catch (err) {
+      setError(inviteErrorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const disconnect = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.disconnectGatewayAccount();
+      refetch();
+    } catch (err) {
+      setError(inviteErrorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card className="p-6" testid="gateway-card">
+      <CardTitle>Payments gateway</CardTitle>
+      <p className="-mt-2 pb-3 text-[13px] leading-relaxed text-neutral-500">
+        Connect the firm's own Razorpay account to collect invoice payments by UPI, card,
+        or netbanking — money settles directly into the firm's bank account. Every client
+        firm needs its own Razorpay account (
+        <a
+          href="https://razorpay.com/signup/"
+          target="_blank"
+          rel="noreferrer"
+          className="font-semibold text-lawleit hover:underline"
+        >
+          signup &amp; KYC checklist
+        </a>
+        ): business PAN, a bank account in the business name, business proof, and live
+        Privacy/Terms/Refund/Contact pages on your website.
+      </p>
+
+      {account?.connected ? (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4" data-testid="gateway-status">
+          <p className="text-[13.5px] font-bold capitalize text-emerald-800">
+            {account.provider} connected — {account.keyId}
+          </p>
+          <p className="mt-0.5 text-[12.5px] text-emerald-700">
+            Connected {new Date(account.connectedAt!).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}.
+            Configure the webhook in your Razorpay dashboard to{" "}
+            <code className="rounded bg-white px-1.5 py-0.5 font-mono text-[11.5px]">
+              {"{APP_BASE_URL}"}/api/v1/webhooks/razorpay/{"{firm id}"}
+            </code>{" "}
+            with the same webhook secret.
+          </p>
+          <button
+            data-testid="gateway-disconnect"
+            onClick={() => void disconnect()}
+            disabled={busy}
+            className="mt-3 rounded-full border border-red-300 px-4 py-1.5 text-[12.5px] font-bold text-red-600 hover:bg-red-50 disabled:opacity-60"
+          >
+            Disconnect
+          </button>
+        </div>
+      ) : (
+        <form onSubmit={submit} data-testid="gateway-form">
+          <div className="grid grid-cols-3 gap-4">
+            <Field label="Key id">
+              <input data-testid="gateway-key-id" required className={inputCls} value={keyId} onChange={(e) => setKeyId(e.target.value)} placeholder="rzp_test_…" />
+            </Field>
+            <Field label="Key secret">
+              <input data-testid="gateway-key-secret" required type="password" className={inputCls} value={keySecret} onChange={(e) => setKeySecret(e.target.value)} />
+            </Field>
+            <Field label="Webhook secret">
+              <input data-testid="gateway-webhook-secret" required type="password" className={inputCls} value={webhookSecret} onChange={(e) => setWebhookSecret(e.target.value)} />
+            </Field>
+          </div>
+          <p className="mt-2 text-[12px] text-neutral-500">
+            Stored AES-256-GCM encrypted at rest, never shown again, never logged.
+          </p>
+          <div className="mt-4 flex items-center gap-3">
+            <button
+              data-testid="gateway-submit"
+              type="submit"
+              disabled={busy}
+              className="rounded-full bg-lawleit px-6 py-2.5 text-[14px] font-bold text-white hover:bg-lawleit-dark disabled:opacity-60"
+            >
+              {busy ? "Saving…" : "Connect gateway"}
+            </button>
+            {saved && (
+              <span data-testid="gateway-saved" className="text-[13px] font-semibold text-emerald-600">
+                Gateway connected ✓
+              </span>
+            )}
+            {error && (
+              <span role="alert" data-testid="gateway-error" className="text-[13px] font-semibold text-red-600">
+                {error}
+              </span>
+            )}
+          </div>
+        </form>
+      )}
     </Card>
   );
 }

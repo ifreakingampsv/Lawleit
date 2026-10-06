@@ -157,6 +157,35 @@ export interface Payment {
   trustAccount: boolean;
 }
 
+/**
+ * V2 slice 1 — one hosted gateway checkout link for one invoice, created
+ * through the firm's own connected gateway (ADR-0006). `amount` is the
+ * invoice's OUTSTANDING paise at creation; `createdAt` is a full ISO
+ * timestamp (an instant, not a contract day).
+ */
+export interface PaymentLink {
+  id: ID;
+  invoiceId: ID;
+  provider: string;
+  providerLinkId: string;
+  shortUrl: string;
+  amount: Paise;
+  status: "active" | "paid" | "expired" | "cancelled";
+  createdAt: string;
+}
+
+/**
+ * The gateway connection status (GET /gateway/account) — no secret fields
+ * exist in this shape anywhere in the system.
+ */
+export interface GatewayAccountStatus {
+  connected: boolean;
+  provider: string | null;
+  keyId: string | null;
+  enabled: boolean;
+  connectedAt: string | null;
+}
+
 export interface TrustTransaction {
   id: ID;
   clientId: ID;

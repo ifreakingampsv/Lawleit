@@ -1,6 +1,6 @@
 import type {
-  CalendarEvent, Case, Contact, DocumentFile, Expense, Firm, ID, Invoice,
-  Lead, MessageThread, Payment, ReportDef, Session, Task, TimeEntry,
+  CalendarEvent, Case, Contact, DocumentFile, Expense, Firm, GatewayAccountStatus, ID, Invoice,
+  Lead, MessageThread, Payment, PaymentLink, ReportDef, Session, Task, TimeEntry,
   TrustTransaction, User,
 } from "./types";
 
@@ -94,6 +94,55 @@ export interface LawleitApi {
   listPayments(): Promise<Payment[]>;
   recordPayment(input: Partial<Payment>): Promise<Payment>;
   listTrustTransactions(): Promise<TrustTransaction[]>;
+
+  /**
+   * V2 slice 1 — collecting payments through the firm's OWN gateway account
+   * (ADR-0006 bring-your-own-keys): the owner connects it once, every member
+   * collects via hosted payment links, money settles to the firm's bank.
+   */
+  /** The firm's gateway connection status (no secrets exist in this shape). */
+  getGatewayAccount(): Promise<GatewayAccountStatus>;
+  /**
+   * Owner-only connect/replace. Server errors pass through verbatim: 403
+   * "Only the firm owner can manage the payments gateway", 400 "Key id, key
+   * secret, and webhook secret are required", and — when the operator has not
+   * set GATEWAY_ENCRYPTION_KEY — 503 "Payments gateway not configured — set
+   * GATEWAY_ENCRYPTION_KEY (see .env.example)".
+   */
+  connectGatewayAccount(input: {
+    provider?: string;
+    keyId: string;
+    keySecret: string;
+    webhookSecret: string;
+  }): Promise<GatewayAccountStatus>;
+  disconnectGatewayAccount(): Promise<void>;
+  /**
+   * Collect: a hosted payment link for the invoice's outstanding paise.
+   * Server errors pass through verbatim: 409 "Invoice is already paid",
+   * 404 "Invoice not found", 503 the not-connected owner-step copy, 502 the
+   * provider-failure copy.
+   */
+  createPaymentLink(invoiceId: ID): Promise<PaymentLink>;
+  /** The invoice's link history, newest first. */
+  listPaymentLinks(invoiceId: ID): Promise<PaymentLink[]>;
+  /**
+   * The cold-start self-heal: re-fetch the link from the gateway and record
+   * the payment if the provider says paid and no webhook got here first.
+   */
+  syncPaymentLink(id: ID): Promise<{ status: PaymentLink["status"]; recorded: boolean }>;
+  /**
+   * Demo-only navigation helper for the simulated gateway page (ADR 0001):
+   * look a link up by id to render /pay/:id. Production implementations
+   * reject — the contract exposes links per invoice, never by bare id.
+   */
+  getPaymentLink(id: ID): Promise<PaymentLink | null>;
+  /**
+   * Demo-only: the simulated gateway's "client pays" action — records the
+   * payment through the SAME path as a manual record (roll-up included) and
+   * flips the link to paid. Production implementations reject: real money
+   * moves at the provider, never inside the app.
+   */
+  payMockLink(id: ID, method: Payment["method"]): Promise<PaymentLink>;
 
   // documents
   listDocuments(): Promise<DocumentFile[]>;
