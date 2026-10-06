@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Maskable variant: the gem sits inside the 80% safe zone on the brand color -->
+  <rect width="512" height="512" fill="#4b4acf"/>
+  <path d="M256 132 352 218 256 380 160 218Z" fill="#ffffff"/>
+  <path d="M256 132 352 218 256 380Z" fill="#dcdcfa"/>
+</svg>

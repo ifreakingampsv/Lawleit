@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- The Lawleit gem mark on white — matches the brand's lawleit (iolitegem) blue-violet -->
+  <rect width="512" height="512" rx="96" fill="#ffffff"/>
+  <path d="M256 84 388 200 256 428 124 200Z" fill="#4b4acf"/>
+  <path d="M256 84 388 200 256 428Z" fill="#6363db"/>
+  <path d="M124 200h264L256 428Z" fill="#3d3db4" opacity="0.35"/>
+</svg>

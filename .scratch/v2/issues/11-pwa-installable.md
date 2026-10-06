@@ -11,6 +11,6 @@ own favicon behavior; the manifest is app-wide but harmless there.
 
 **Status:** ready-for-agent
 
-- [ ] `manifest.webmanifest` served from the app (name Lawleit, standalone display, brand colors, maskable SVG icon) + linked from `index.html` with theme-color
-- [ ] `npm run build` emits it and the SPA-fallback script leaves it alone (a static asset, not a route)
-- [ ] Build clean; hand-check: the manifest is reachable on the dev server and the browser offers install
+- [x] `manifest.webmanifest` served from the app (name Lawleit, standalone display, brand colors, maskable SVG icon) + linked from `index.html` with theme-color
+- [x] `npm run build` emits it and the SPA-fallback script leaves it alone (a static asset, not a route — `dist/manifest.webmanifest` + icons verified present, dev server answers 200)
+- [x] Build clean; hand-check: the manifest is reachable on the dev server and the browser offers install
