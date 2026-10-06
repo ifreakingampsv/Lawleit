@@ -28,6 +28,7 @@ import type { TimeEntryRepository } from "../time/repository.js";
 import type { ExpenseRepository } from "../expenses/repository.js";
 import type {
   GatewayAccountRepository,
+  PaymentLinkRepository,
 } from "../gateway/repository.js";
 import type {
   InvoiceLineRepository,
@@ -241,5 +242,9 @@ export interface AuthRepositories {
    * aggregate and transaction seam — the connect/replace upsert commits
    * atomically (the partial unique firm_id index guards the invariant). */
   gatewayAccounts: GatewayAccountRepository;
+  /** V2 slice 1 (ticket 03): the firm's payment links ditto — the webhook
+   * path (ticket 04) flips a link's status and records its payment inside
+   * one transaction. */
+  paymentLinks: PaymentLinkRepository;
   transaction<T>(work: (repos: AuthRepositories) => Promise<T>): Promise<T>;
 }

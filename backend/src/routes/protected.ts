@@ -34,7 +34,11 @@ import { commsRoutes } from "./comms.js";
 import { ReportsService } from "../services/reports/service.js";
 import { reportsRoutes } from "./reports.js";
 import { GatewayAccountService } from "../services/gateway/service.js";
+import { PaymentLinkService } from "../services/gateway/links.js";
+import { createRazorpayGateway } from "../services/gateway/razorpay.js";
+import type { GatewayService } from "../services/gateway/provider.js";
 import { gatewayRoutes } from "./gateway.js";
+import { paymentLinkRoutes } from "./paymentLinks.js";
 import { DB_REQUIRED, extractToken, requireAuth } from "./requestAuth.js";
 
 export type ProtectedRoutesOptions = {
@@ -50,6 +54,9 @@ export type ProtectedRoutesOptions = {
   /** V2 slice 1 (ticket 02): the gateway-secrets encryption key; null/absent
    * = GATEWAY_ENCRYPTION_KEY is unset and the gateway writes answer 503. */
   gatewayEncryptionKey?: string | null;
+  /** V2 slice 1 (ticket 03): the GatewayService provider seam (tests bind a
+   * fake-provider client); production derives the Razorpay binding. */
+  gateway?: GatewayService;
 };
 
 // zod strips unknown keys, so whole-entity saves from the UI (which send id
@@ -131,6 +138,11 @@ export async function protectedRoutes(
   const gatewayAccountService = repos
     ? new GatewayAccountService(repos, options.gatewayEncryptionKey ?? null)
     : null;
+  const gateway = options.gateway ?? createRazorpayGateway();
+  const paymentLinkService =
+    repos && gatewayAccountService
+      ? new PaymentLinkService(repos, gatewayAccountService, gateway)
+      : null;
 
   // The guard guarantees services exist whenever a handler runs; the helper
   // narrows the types without assertions.
@@ -220,6 +232,8 @@ export async function protectedRoutes(
   // status/disconnect of the firm's own Razorpay account (owner-only writes,
   // member-readable status, 503 writes without GATEWAY_ENCRYPTION_KEY) — same
   // guard. The public webhook route lives in routes/index.ts (server-to-server,
-  // no session); the collect surface joins in ticket 03.
+  // no session); the collect surface (routes/paymentLinks.ts) joins in ticket
+  // 03, same guard, same every-member-manages rule.
   await app.register(gatewayRoutes, { gatewayAccountService });
+  await app.register(paymentLinkRoutes, { paymentLinkService });
 }

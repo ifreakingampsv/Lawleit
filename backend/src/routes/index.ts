@@ -4,6 +4,7 @@ import { createDrizzleRepositories } from "../services/auth/drizzle-repository.j
 import type { AuthRepositories } from "../services/auth/repository.js";
 import { AuthService } from "../services/auth/service.js";
 import type { StorageService } from "../services/storage/service.js";
+import type { GatewayService } from "../services/gateway/provider.js";
 import type { Mailer } from "../services/auth/mailer.js";
 import { authRoutes } from "./auth.js";
 import { protectedRoutes } from "./protected.js";
@@ -24,6 +25,9 @@ export type ApiRoutesOptions = {
   /** V2 slice 1 (ticket 02): the gateway-secrets encryption key; null/absent
    * = GATEWAY_ENCRYPTION_KEY is unset and the gateway writes answer 503. */
   gatewayEncryptionKey?: string | null;
+  /** V2 slice 1 (ticket 03): the GatewayService provider seam (tests bind a
+   * fake-provider client); production derives the Razorpay binding. */
+  gateway?: GatewayService;
 };
 
 /**
@@ -53,6 +57,7 @@ export async function apiRoutes(
     storage: options.storage,
     maxUploadBytes: options.maxUploadBytes,
     gatewayEncryptionKey: options.gatewayEncryptionKey,
+    gateway: options.gateway,
   });
   await app.register(healthRoutes, { db: options.db ?? null });
 }

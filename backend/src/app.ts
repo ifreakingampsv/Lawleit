@@ -11,6 +11,8 @@ import type { Mailer } from "./services/auth/mailer.js";
 import { createEmailDelivery } from "./services/email/mailer.js";
 import { createS3Storage } from "./services/storage/s3.js";
 import type { StorageService } from "./services/storage/service.js";
+import { createRazorpayGateway } from "./services/gateway/razorpay.js";
+import type { GatewayService } from "./services/gateway/provider.js";
 
 /** Test seams: bind fakes without a database. Production leaves them unset. */
 export interface BuildAppDeps {
@@ -19,6 +21,10 @@ export interface BuildAppDeps {
   /** Ticket 17: bind a storage service (tests bind the in-memory fake).
    * Production derives the S3 binding from config.storage. */
   storage?: StorageService | null;
+  /** V2 slice 1 (ticket 03): bind the GatewayService provider seam (tests
+   * bind a RazorpayGateway pointed at a fake provider server). Production
+   * uses the real api.razorpay.com client. */
+  gateway?: GatewayService;
 }
 
 /**
@@ -108,6 +114,7 @@ export async function buildApp(
     storage,
     maxUploadBytes: config.storage?.maxUploadBytes,
     gatewayEncryptionKey: config.gatewayEncryptionKey,
+    gateway: deps.gateway ?? createRazorpayGateway(),
   });
   // The reference backend also serves /health prefixless; the smoke suite and
   // the vite proxy rely on both forms.

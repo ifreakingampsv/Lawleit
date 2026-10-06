@@ -15,8 +15,8 @@ provider server and a future provider/model swap is contained.
 
 **Status:** ready-for-agent
 
-- [ ] New versioned migration adds `payment_links` (firm_id FK+idx, invoice_id FK+idx, provider, provider_link_id, short_url, amount bigint paise, status, stamps) with the repo's conventions
-- [ ] `POST /invoices/:id/payment-link`: creates the link server-side via the firm's connected account; 201 returns the link shape; draft/sent/overdue only — paid 409; unknown/cross-firm invoice 404; no gateway 503 (owner-step copy)
-- [ ] `GET /invoices/:id/payment-links`: newest-first history; cross-firm 404
-- [ ] GatewayService seam (create link, fetch link) with the Razorpay client behind it; credentials decrypted in-memory only, never logged (asserted)
-- [ ] Route tests against a fake provider HTTP server: happy path, provider failure surfaces as a clean 502/503 envelope, amount correctness (paise), link persisted; DB twins for the table constraints; full suites green (backend WITHOUT DATABASE_URL, app, smoke, typecheck)
+- [x] New versioned migration adds `payment_links` (firm_id FK+idx, invoice_id FK+idx, provider, provider_link_id, short_url, amount bigint paise, status, stamps) with the repo's conventions
+- [x] `POST /invoices/:id/payment-link`: creates the link server-side via the firm's connected account; 201 returns the link shape; draft/sent/overdue only — paid 409; unknown/cross-firm invoice 404; no gateway 503 (owner-step copy)
+- [x] `GET /invoices/:id/payment-links`: newest-first history; cross-firm 404
+- [x] GatewayService seam (create link, fetch link) with the Razorpay client behind it; credentials decrypted in-memory only, never logged (asserted)
+- [x] Route tests against a fake provider HTTP server: happy path, provider failure surfaces as a clean 502/503 envelope, amount correctness (paise), link persisted; DB twins for the table constraints; full suites green (backend WITHOUT DATABASE_URL, app, smoke, typecheck) — backend 266/266, app 70/70, smoke 65/65, typecheck clean

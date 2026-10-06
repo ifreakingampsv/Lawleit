@@ -1069,6 +1069,54 @@ export const gatewayAccounts = pgTable(
   ],
 );
 
+/**
+ * Payment links (V2 slice 1, ticket 03) — hosted Razorpay checkout links for
+ * one invoice, created through the firm's own connected gateway account
+ * (ADR-0006; the GatewayService seam in services/gateway/provider.ts is the
+ * only writer of the provider fields). Column set mirrors the contract's
+ * PaymentLink shape 1:1:
+ *
+ * - `amount` is bigint integer paise — the invoice's OUTSTANDING total at
+ *   creation (Σ line amounts − Σ non-failed payments), so a partial payment
+ *   already made shrinks the link the client sees.
+ * - `status` carries the contract's active/paid/expired/cancelled vocabulary
+ *   as text enforced by the mapper from the provider's own status vocabulary
+ *   (created → active; paid/expired/cancelled map 1:1).
+ * - `provider_link_id` is the Razorpay link id (its `id`, e.g. link_XXXX) —
+ *   the reconciliation path (ticket 05) re-fetches by it. Not unique in the
+ *   DB: the provider owns it, and the dedupe that matters (webhook events)
+ *   lives in gateway_events.
+ *
+ * An invoice may hold several links over time (an expired link is replaced by
+ * a fresh one); the UI shows the latest non-terminal one. No unique-ish
+ * business fields → no partial unique indexes (the contacts pattern). Soft
+ * delete per the baseline convention (no route exercises it yet).
+ */
+export const paymentLinks = pgTable(
+  "payment_links",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    firmId: uuid("firm_id")
+      .notNull()
+      .references(() => firms.id),
+    invoiceId: uuid("invoice_id")
+      .notNull()
+      .references(() => invoices.id),
+    provider: text("provider").notNull().default("razorpay"),
+    providerLinkId: text("provider_link_id").notNull(),
+    shortUrl: text("short_url").notNull(),
+    amount: bigint("amount", { mode: "number" }).notNull(),
+    status: text("status").notNull().default("active"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("payment_links_firm_id_idx").on(table.firmId),
+    index("payment_links_invoice_id_idx").on(table.invoiceId),
+  ],
+);
+
 export const firmsRelations = relations(firms, ({ many }) => ({
   users: many(users),
   sessions: many(sessions),

@@ -4,8 +4,13 @@ import { closeDb, migrationsFolder, requireDb, type DbHandle } from "../../db/cl
 import { createDrizzleRepositories } from "../auth/drizzle-repository.js";
 import { AuthService } from "../auth/service.js";
 import { CapturingMailer } from "../auth/testing.js";
+import { ContactsService } from "../contacts/service.js";
+import { InvoicesService } from "../invoices/service.js";
 import { deriveAesKey, decryptSecret } from "./encryption.js";
 import { GatewayAccountService } from "./service.js";
+import type { GatewayService, ProviderLink, ProviderLinkInput } from "./provider.js";
+import type { GatewayCredentials } from "./service.js";
+import { PaymentLinkService } from "./links.js";
 
 /**
  * DB-backed twin of the gateway account suite (service.db.test.ts pattern):
@@ -28,7 +33,7 @@ describe.skipIf(!process.env.DATABASE_URL)("gateway accounts against Postgres", 
 
   afterEach(async () => {
     await handle.sql.unsafe(
-      "truncate table case_number_counters, cases, contacts, documents, email_outbox, expenses, events, gateway_accounts, invoice_line_items, invoice_number_counters, invoices, lead_stage_history, leads, notifications, payments, tasks, thread_messages, threads, time_entries, password_reset_tokens, sessions, trust_transactions, users, firms cascade",
+      "truncate table case_number_counters, cases, contacts, documents, email_outbox, expenses, events, gateway_accounts, invoice_line_items, invoice_number_counters, invoices, lead_stage_history, leads, notifications, payment_links, payments, tasks, thread_messages, threads, time_entries, password_reset_tokens, sessions, trust_transactions, users, firms cascade",
     );
   });
 
@@ -154,14 +159,147 @@ describe.skipIf(!process.env.DATABASE_URL)("gateway accounts against Postgres", 
     // (random IV) and each decrypts to the same plaintext.
     await gateway.connect(actorA, CONNECT);
     await gateway.connect(actorB, CONNECT);
-    const rows = await handle.sql`
-      select firm_id, key_secret from gateway_accounts order by firm_id`;
+    const rows = (await handle.sql`
+      select firm_id, key_secret from gateway_accounts order by firm_id`) as unknown as {
+      firm_id: string; key_secret: string;
+    }[];
     expect(rows).toHaveLength(2);
-    const [rowA, rowB] = rows as { firm_id: string; key_secret: string }[];
+    const rowA = rows[0]!;
+    const rowB = rows[1]!;
     expect(rowA.key_secret).not.toBe(rowB.key_secret);
     const aesKey = deriveAesKey(KEY);
     expect(decryptSecret(rowA.key_secret, aesKey)).toBe(CONNECT.keySecret);
     expect(decryptSecret(rowB.key_secret, aesKey)).toBe(CONNECT.keySecret);
     expect(a.firm.id).not.toBe(b.firm.id);
+  });
+});
+
+/**
+ * Ticket 03's twin: the payment_links flow against real Postgres — the
+ * invoice FK + firm scoping, the bigint paise amount readback, and the
+ * provider-seam contract (a fake GatewayService, since the DB twin must not
+ * touch the network). The link row the service writes must round-trip the
+ * exact outstanding amount and the contract's status vocabulary.
+ */
+describe.skipIf(!process.env.DATABASE_URL)("payment links against Postgres", () => {
+  let handle: DbHandle;
+
+  beforeAll(async () => {
+    handle = requireDb();
+    await migrate(handle.db, { migrationsFolder });
+  });
+
+  afterEach(async () => {
+    await handle.sql.unsafe(
+      "truncate table case_number_counters, cases, contacts, documents, email_outbox, expenses, events, gateway_accounts, invoice_line_items, invoice_number_counters, invoices, lead_stage_history, leads, notifications, payment_links, payments, tasks, thread_messages, threads, time_entries, password_reset_tokens, sessions, trust_transactions, users, firms cascade",
+    );
+  });
+
+  afterAll(async () => {
+    await closeDb();
+  });
+
+  const KEY = "test-encryption-key-with-at-least-32-chars";
+
+  /** The provider fake the seam binds in place of Razorpay. */
+  function fakeGateway(): GatewayService & { calls: number } {
+    let seq = 0;
+    const service = {
+      calls: 0,
+      async createLink(_credentials: GatewayCredentials, input: ProviderLinkInput): Promise<ProviderLink> {
+        service.calls += 1;
+        return {
+          id: `link_FAKE${String(++seq).padStart(4, "0")}`,
+          shortUrl: `https://rzp.io/i/fake${seq}`,
+          status: "created",
+          amount: input.amount,
+        };
+      },
+      async fetchLink(): Promise<ProviderLink> {
+        service.calls += 1;
+        return { id: "link_FAKE0001", shortUrl: "https://rzp.io/i/fake1", status: "paid", amount: 250000 };
+      },
+    };
+    return service;
+  }
+
+  async function firmWithOwner(auth: AuthService, mailer: CapturingMailer, email: string) {
+    const registered = await auth.register({
+      firstName: "Owner", lastName: "Of Firm", email,
+      firmName: `Firm of ${email}`, zip: "", phone: "",
+    });
+    await auth.requestPasswordReset(email);
+    await auth.consumePasswordReset(mailer.sends[mailer.sends.length - 1]!.token, "password-123");
+    return registered;
+  }
+
+  function build(mailer: CapturingMailer) {
+    const repos = createDrizzleRepositories(handle);
+    const accounts = new GatewayAccountService(repos, KEY);
+    const gateway = fakeGateway();
+    return {
+      auth: new AuthService(repos, mailer),
+      accounts,
+      gateway,
+      contacts: new ContactsService(repos),
+      invoices: new InvoicesService(repos),
+      links: new PaymentLinkService(repos, accounts, gateway),
+    };
+  }
+
+  it("collect → the columns really persisted: firm/invoice FKs, bigint paise outstanding amount, contract status; cross-firm reads 404", async () => {
+    const mailer = new CapturingMailer();
+    const { auth, accounts, contacts, invoices, links } = build(mailer);
+    const { firm } = await firmWithOwner(auth, mailer, "owner@firm.example");
+    const firmId = firm.id;
+    const actor = (await auth.login("owner@firm.example", "password-123")).user;
+
+    await accounts.connect(actor, {
+      keyId: "rzp_test_FakeKeyId12345",
+      keySecret: "rzp-test-fake-key-secret-plaintext",
+      webhookSecret: "whsec-fake-shared-secret",
+    });
+    const client = await contacts.create(firmId, { name: "Client" });
+    const invoice = await invoices.create(firmId, {
+      clientId: client.id,
+      lines: [{ description: "Work", quantity: 1, rate: 500000, kind: "flat" }],
+    });
+
+    const link = await links.create(firmId, invoice.id);
+    expect(link).toMatchObject({
+      invoiceId: invoice.id,
+      provider: "razorpay",
+      providerLinkId: "link_FAKE0001",
+      shortUrl: "https://rzp.io/i/fake1",
+      amount: 500000,
+      status: "active",
+    });
+
+    const rows = (await handle.sql`
+      select firm_id, invoice_id, provider, provider_link_id, short_url, amount,
+             status, deleted_at
+      from payment_links where id = ${link.id}`) as unknown as {
+      firm_id: string; invoice_id: string; provider: string; provider_link_id: string;
+      short_url: string; amount: string; status: string; deleted_at: Date | null;
+    }[];
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toEqual({
+      firm_id: firmId,
+      invoice_id: invoice.id,
+      provider: "razorpay",
+      provider_link_id: "link_FAKE0001",
+      short_url: "https://rzp.io/i/fake1",
+      amount: "500000", // bigint reads back as a string here; exact paise
+      status: "active",
+      deleted_at: null,
+    });
+
+    // Cross-firm: another firm's invoice is 404 for collect AND for history.
+    const other = await firmWithOwner(auth, mailer, "owner@firm-b.example");
+    const otherId = other.firm.id;
+    const otherInvoice = await invoices.create(otherId, {});
+    await expect(links.create(otherId, invoice.id)).rejects.toMatchObject({ statusCode: 404 });
+    await expect(links.list(otherId, invoice.id)).rejects.toMatchObject({ statusCode: 404 });
+    expect(otherInvoice.id).toEqual(expect.any(String));
   });
 });

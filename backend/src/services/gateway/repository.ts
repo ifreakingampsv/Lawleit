@@ -101,3 +101,61 @@ export interface GatewayAccountRepository {
   /** Soft disconnect: stamps deleted_at, the row itself stays (ADR-0003 audit). */
   delete(firmId: string): Promise<boolean>;
 }
+
+/**
+ * A payment link row (ticket 03) — the local mirror of one Razorpay Payment
+ * Link for one invoice. `amount` is integer paise; `status` is the contract's
+ * active/paid/expired/cancelled vocabulary.
+ */
+export interface PaymentLinkRow {
+  id: string;
+  firmId: string;
+  invoiceId: string;
+  provider: string;
+  /** The provider's link id (link_XXXX) — reconciliation re-fetches by it. */
+  providerLinkId: string;
+  shortUrl: string;
+  amount: number;
+  status: string;
+  /** Full ISO timestamp in the API shape (an instant, not a contract day). */
+  createdAt: Date;
+  updatedAt: Date;
+  deletedAt: Date | null;
+}
+
+/** The link shape the API contract exposes (docs/API_CONTRACT.md). */
+export type ApiPaymentLink = Pick<
+  PaymentLinkRow,
+  "id" | "invoiceId" | "provider" | "providerLinkId" | "shortUrl" | "amount" | "status"
+> & { createdAt: string };
+
+/** Destructuring is the whitelist — firm_id and bookkeeping cannot leak. */
+export function toApiPaymentLink(row: PaymentLinkRow): ApiPaymentLink {
+  const { id, invoiceId, provider, providerLinkId, shortUrl, amount, status, createdAt } = row;
+  return { id, invoiceId, provider, providerLinkId, shortUrl, amount, status, createdAt: createdAt.toISOString() };
+}
+
+/** One payment link to insert; the service owns every field. */
+export interface NewPaymentLink {
+  firmId: string;
+  invoiceId: string;
+  provider: string;
+  providerLinkId: string;
+  shortUrl: string;
+  amount: number;
+  status: string;
+}
+
+export interface PaymentLinkRepository {
+  create(input: NewPaymentLink): Promise<PaymentLinkRow>;
+  /** Live (non-deleted) link in the given firm; null otherwise. */
+  findById(firmId: string, id: string): Promise<PaymentLinkRow | null>;
+  /** One invoice's live links, newest first (the mock/reference unshift). */
+  listByInvoice(firmId: string, invoiceId: string): Promise<PaymentLinkRow[]>;
+  /** Live-row update (status transitions); null when missing/foreign/deleted. */
+  update(firmId: string, id: string, patch: PaymentLinkPatch): Promise<PaymentLinkRow | null>;
+}
+
+export interface PaymentLinkPatch {
+  status?: string;
+}
