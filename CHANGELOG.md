@@ -289,3 +289,21 @@ The V1 build: 20 tracer-bullet tickets (specs + post-build notes in
   prior runs against the real DB), app 74/74, smoke 73/73 on the reference,
   typecheck both packages clean, `npm run build` clean. All work committed
   locally; push (which deploys Vercel ×2 + Render) is the owner's call.
+
+- (seed) Ticket 09: the sample workspace (Option B, owner-approved) — migration
+  0015 (firms.sample_data jsonb, server-managed); signup seeds a labeled sample
+  set (3 contacts, 1 case, 1 hearing, 1 task, 1 time entry, 1 draft invoice,
+  1 trust deposit — every visible name carries "Sample") through the SAME
+  services the UI uses; POST /firm/sample-data/remove soft-deletes the rows and
+  appends the trust REVERSAL (ledger stays append-only, balance → ₹0), payments
+  gained the seam's first softDelete; the firm shape gains hasSampleData; the
+  dashboard banner (production only) offers confirm-first removal. Suites that
+  assert on a pristine empty firm opt out via buildApp sampleSeeding: false.
+- (conflicts) Ticket 10: GET /contacts/conflict-check?name= — normalized token
+  overlap against the firm's contacts with the matters they appear on; the
+  contact create form shows a debounced non-blocking "possible conflict"
+  warning (the Bar Council judgment stays the lawyer's).
+- (pwa) Ticket 11: installable — manifest.webmanifest + SVG gem icons +
+  theme-color/apple meta; build emits them, dev server serves 200.
+- (verify) Final sweep: backend 285/285, app 75/75, smoke 73/73 (reference),
+  typechecks clean, build clean. Committed locally; push remains the owner's.
