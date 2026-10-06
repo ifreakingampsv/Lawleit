@@ -23,8 +23,12 @@ import { InMemoryTimeEntryRepository } from "../time/in-memory.js";
 import type { TimeEntryRow } from "../time/repository.js";
 import { InMemoryExpenseRepository } from "../expenses/in-memory.js";
 import type { ExpenseRow } from "../expenses/repository.js";
-import { InMemoryGatewayAccountRepository, InMemoryPaymentLinkRepository } from "../gateway/in-memory.js";
-import type { GatewayAccountRow, PaymentLinkRow } from "../gateway/repository.js";
+import {
+  InMemoryGatewayAccountRepository,
+  InMemoryGatewayEventRepository,
+  InMemoryPaymentLinkRepository,
+} from "../gateway/in-memory.js";
+import type { GatewayAccountRow, GatewayEventRow, PaymentLinkRow } from "../gateway/repository.js";
 import {
   InMemoryInvoiceLineRepository,
   InMemoryInvoiceNumberRepository,
@@ -230,6 +234,7 @@ interface Store {
   notifications: NotificationRow[];
   gatewayAccounts: GatewayAccountRow[];
   paymentLinks: PaymentLinkRow[];
+  gatewayEvents: GatewayEventRow[];
 }
 
 /**
@@ -267,6 +272,7 @@ export function inMemoryAuthRepositories(): AuthRepositories {
     notifications: [],
     gatewayAccounts: [],
     paymentLinks: [],
+    gatewayEvents: [],
   };
   const repos: AuthRepositories = {
     firms: new InMemoryFirmRepository(store),
@@ -293,6 +299,7 @@ export function inMemoryAuthRepositories(): AuthRepositories {
     notifications: new InMemoryNotificationRepository(store.notifications),
     gatewayAccounts: new InMemoryGatewayAccountRepository(store.gatewayAccounts),
     paymentLinks: new InMemoryPaymentLinkRepository(store.paymentLinks),
+    gatewayEvents: new InMemoryGatewayEventRepository(store.gatewayEvents),
     async transaction(work) {
       return work(repos);
     },

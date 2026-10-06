@@ -4,6 +4,7 @@ import { closeDb, migrationsFolder, requireDb, type DbHandle } from "../../db/cl
 import { createDrizzleRepositories } from "../auth/drizzle-repository.js";
 import { AuthService } from "../auth/service.js";
 import { CapturingMailer } from "../auth/testing.js";
+import { createHmac } from "node:crypto";
 import { ContactsService } from "../contacts/service.js";
 import { InvoicesService } from "../invoices/service.js";
 import { deriveAesKey, decryptSecret } from "./encryption.js";
@@ -11,6 +12,8 @@ import { GatewayAccountService } from "./service.js";
 import type { GatewayService, ProviderLink, ProviderLinkInput } from "./provider.js";
 import type { GatewayCredentials } from "./service.js";
 import { PaymentLinkService } from "./links.js";
+import { PaymentsService } from "../payments/service.js";
+import { GatewayWebhookService, WEBHOOK_FIRM_UNKNOWN } from "./webhooks.js";
 
 /**
  * DB-backed twin of the gateway account suite (service.db.test.ts pattern):
@@ -33,7 +36,7 @@ describe.skipIf(!process.env.DATABASE_URL)("gateway accounts against Postgres", 
 
   afterEach(async () => {
     await handle.sql.unsafe(
-      "truncate table case_number_counters, cases, contacts, documents, email_outbox, expenses, events, gateway_accounts, invoice_line_items, invoice_number_counters, invoices, lead_stage_history, leads, notifications, payment_links, payments, tasks, thread_messages, threads, time_entries, password_reset_tokens, sessions, trust_transactions, users, firms cascade",
+      "truncate table case_number_counters, cases, contacts, documents, email_outbox, expenses, events, gateway_accounts, gateway_events, invoice_line_items, invoice_number_counters, invoices, lead_stage_history, leads, notifications, payment_links, payments, tasks, thread_messages, threads, time_entries, password_reset_tokens, sessions, trust_transactions, users, firms cascade",
     );
   });
 
@@ -191,7 +194,7 @@ describe.skipIf(!process.env.DATABASE_URL)("payment links against Postgres", () 
 
   afterEach(async () => {
     await handle.sql.unsafe(
-      "truncate table case_number_counters, cases, contacts, documents, email_outbox, expenses, events, gateway_accounts, invoice_line_items, invoice_number_counters, invoices, lead_stage_history, leads, notifications, payment_links, payments, tasks, thread_messages, threads, time_entries, password_reset_tokens, sessions, trust_transactions, users, firms cascade",
+      "truncate table case_number_counters, cases, contacts, documents, email_outbox, expenses, events, gateway_accounts, gateway_events, invoice_line_items, invoice_number_counters, invoices, lead_stage_history, leads, notifications, payment_links, payments, tasks, thread_messages, threads, time_entries, password_reset_tokens, sessions, trust_transactions, users, firms cascade",
     );
   });
 
@@ -301,5 +304,109 @@ describe.skipIf(!process.env.DATABASE_URL)("payment links against Postgres", () 
     await expect(links.create(otherId, invoice.id)).rejects.toMatchObject({ statusCode: 404 });
     await expect(links.list(otherId, invoice.id)).rejects.toMatchObject({ statusCode: 404 });
     expect(otherInvoice.id).toEqual(expect.any(String));
+  });
+});
+
+describe.skipIf(!process.env.DATABASE_URL)("webhook ledger against Postgres", () => {
+  let handle: DbHandle;
+
+  beforeAll(async () => {
+    handle = requireDb();
+    await migrate(handle.db, { migrationsFolder });
+  });
+
+  afterEach(async () => {
+    await handle.sql.unsafe(
+      "truncate table case_number_counters, cases, contacts, documents, email_outbox, expenses, events, gateway_accounts, gateway_events, invoice_line_items, invoice_number_counters, invoices, lead_stage_history, leads, notifications, payment_links, payments, tasks, thread_messages, threads, time_entries, password_reset_tokens, sessions, trust_transactions, users, firms cascade",
+    );
+  });
+
+  afterAll(async () => {
+    await closeDb();
+  });
+
+  const KEY = "test-encryption-key-with-at-least-32-chars";
+  const SECRET = "whsec-db-webhook-shared-plaintext";
+  const sign = (body: string) => createHmac("sha256", SECRET).update(body).digest("hex");
+
+  async function firmWithOwner(auth: AuthService, mailer: CapturingMailer, email: string) {
+    const registered = await auth.register({
+      firstName: "Owner", lastName: "Of Firm", email,
+      firmName: `Firm of ${email}`, zip: "", phone: "",
+    });
+    await auth.requestPasswordReset(email);
+    await auth.consumePasswordReset(mailer.sends[mailer.sends.length - 1]!.token, "password-123");
+    return registered;
+  }
+
+  function build(mailer: CapturingMailer) {
+    const repos = createDrizzleRepositories(handle);
+    const accounts = new GatewayAccountService(repos, KEY);
+    return {
+      repos,
+      auth: new AuthService(repos, mailer),
+      accounts,
+      invoices: new InvoicesService(repos),
+      webhooks: new GatewayWebhookService(repos, accounts, new PaymentsService(repos)),
+    };
+  }
+
+  it("the unique (provider, provider_event_id) index really fires: a duplicate insert dies with 23505 inside the transaction", async () => {
+    const mailer = new CapturingMailer();
+    const { repos, auth } = build(mailer);
+    const { firm } = await firmWithOwner(auth, mailer, "owner@ledger.example");
+    await repos.gatewayEvents.create({
+      firmId: firm.id, provider: "razorpay", providerEventId: "evt_DB1", eventType: "payment_link.paid",
+    });
+    let code: unknown;
+    try {
+      await repos.gatewayEvents.create({
+        firmId: firm.id, provider: "razorpay", providerEventId: "evt_DB1", eventType: "payment_link.paid",
+      });
+    } catch (error) {
+      code = (error as { code?: unknown }).code;
+    }
+    expect(code).toBe("23505");
+  });
+
+  it("the webhook records payment + event + link flip atomically on real Postgres; the replay writes nothing", async () => {
+    const mailer = new CapturingMailer();
+    const { repos, auth, accounts, invoices, webhooks } = build(mailer);
+    const { firm } = await firmWithOwner(auth, mailer, "owner@webhook.example");
+    const firmId = firm.id;
+    const actor = (await auth.login("owner@webhook.example", "password-123")).user;
+    await accounts.connect(actor, {
+      keyId: "rzp_test_WebhookDb12345", keySecret: "rzp-test-webhook-db-secret", webhookSecret: SECRET,
+    });
+    const invoice = await invoices.create(firmId, {
+      lines: [{ description: "Professional services", quantity: 1, rate: 500000, kind: "flat" }],
+    });
+    await repos.paymentLinks.create({
+      firmId, invoiceId: invoice.id, provider: "razorpay",
+      providerLinkId: "link_DBWH1", shortUrl: "https://rzp.io/i/dbwh1", amount: 500000, status: "active",
+    });
+
+    const body = JSON.stringify({
+      event: "payment_link.paid",
+      payload: {
+        payment_link: { entity: { id: "link_DBWH1" } },
+        payment: { entity: { id: "pay_DBWH1", method: "upi" } },
+      },
+    });
+    const first = await webhooks.handle(firmId, body, sign(body), "evt_DBWH1");
+    expect(first).toEqual({ recorded: true, duplicate: false });
+    const payments = await repos.payments.listByFirm(firmId);
+    expect(payments).toHaveLength(1);
+    expect(payments[0]!.method).toBe("upi");
+    expect((await repos.paymentLinks.listByInvoice(firmId, invoice.id))[0]!.status).toBe("paid");
+    expect((await repos.invoices.findById(firmId, invoice.id))!.status).toBe("paid");
+
+    const replay = await webhooks.handle(firmId, body, sign(body), "evt_DBWH1");
+    expect(replay).toEqual({ recorded: false, duplicate: true });
+    expect(await repos.payments.listByFirm(firmId)).toHaveLength(1);
+
+    await expect(
+      webhooks.handle("00000000-0000-4000-8000-000000000000", body, sign(body)),
+    ).rejects.toMatchObject({ statusCode: 404, message: WEBHOOK_FIRM_UNKNOWN });
   });
 });

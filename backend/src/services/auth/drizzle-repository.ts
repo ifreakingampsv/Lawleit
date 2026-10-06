@@ -18,6 +18,7 @@ import { DrizzleTimeEntryRepository } from "../time/drizzle.js";
 import { DrizzleExpenseRepository } from "../expenses/drizzle.js";
 import {
   DrizzleGatewayAccountRepository,
+  DrizzleGatewayEventRepository,
   DrizzlePaymentLinkRepository,
 } from "../gateway/drizzle.js";
 import {
@@ -269,6 +270,7 @@ export function reposOnExecutor(exec: DbExecutor): AuthRepositories {
     notifications: new DrizzleNotificationRepository(exec),
     gatewayAccounts: new DrizzleGatewayAccountRepository(exec),
     paymentLinks: new DrizzlePaymentLinkRepository(exec),
+    gatewayEvents: new DrizzleGatewayEventRepository(exec),
     transaction: () => {
       throw new Error("transaction() is only available on the root repository set");
     },

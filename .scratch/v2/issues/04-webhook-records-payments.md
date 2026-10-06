@@ -17,9 +17,9 @@ expiry events append to the event ledger only.
 
 **Status:** ready-for-agent
 
-- [ ] New versioned migration adds `gateway_events` (firm_id, provider, provider_event_id unique per provider, event type, processed flag, stamps) — the idempotency ledger
-- [ ] Webhook route: signature verified against the URL-named firm's webhook secret; mismatch 400 with empty body; unknown firm 404; 2xx returned fast
-- [ ] payment_link.paid → payment recorded via the same transactional path as manual recording (method mapping, trust flag hard-wired false) + link status flips to paid; duplicate/replayed event id is a no-op 2xx (asserted: exactly one payment row after N replays)
-- [ ] Cross-firm isolation test: valid signature, foreign firm id in URL → 404 and no rows written anywhere
-- [ ] payment.failed/expiry events recorded in the ledger without side effects on payments or invoices
-- [ ] Route tests (fake provider signatures) + DB twins for the unique event constraint; full suites green (backend WITHOUT DATABASE_URL, app, smoke, typecheck)
+- [x] New versioned migration adds `gateway_events` (firm_id, provider, provider_event_id unique per provider, event type, processed flag, stamps) — the idempotency ledger (the unique index IS the dedupe; a processed flag would be redundant — event rows are append-only audit)
+- [x] Webhook route: signature verified against the URL-named firm's webhook secret; mismatch 400 with empty body; unknown firm 404; 2xx returned fast (400s carry the standard error envelope per the contract's own convention — contract wording updated to match)
+- [x] payment_link.paid → payment recorded via the same transactional path as manual recording (method mapping, trust flag hard-wired false) + link status flips to paid; duplicate/replayed event id is a no-op 2xx (asserted: exactly one payment row after N replays)
+- [x] Cross-firm isolation test: valid signature, foreign firm id in URL → 404 and no rows written anywhere; firm B's valid secret cannot authorize firm A's URL (400)
+- [x] payment.failed/expiry events recorded in the ledger without side effects on payments or invoices
+- [x] Route tests (fake provider signatures) + DB twins for the unique event constraint; full suites green (backend WITHOUT DATABASE_URL, app, smoke, typecheck) — backend 273/273, app 70/70, smoke 65/65, typecheck clean

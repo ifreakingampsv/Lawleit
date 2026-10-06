@@ -3,7 +3,10 @@ import type {
   GatewayAccountPatch,
   GatewayAccountRepository,
   GatewayAccountRow,
+  GatewayEventRepository,
+  GatewayEventRow,
   NewGatewayAccount,
+  NewGatewayEvent,
   NewPaymentLink,
   PaymentLinkPatch,
   PaymentLinkRepository,
@@ -80,10 +83,52 @@ export class InMemoryPaymentLinkRepository implements PaymentLinkRepository {
     );
   }
 
+  async findByProviderLinkId(firmId: string, providerLinkId: string): Promise<PaymentLinkRow | null> {
+    return (
+      this.links.find(
+        (l) => l.providerLinkId === providerLinkId && l.firmId === firmId && l.deletedAt === null,
+      ) ?? null
+    );
+  }
+
   async update(firmId: string, id: string, patch: PaymentLinkPatch): Promise<PaymentLinkRow | null> {
     const row = await this.findById(firmId, id);
     if (!row) return null;
     Object.assign(row, patch, { updatedAt: new Date() });
     return row;
+  }
+}
+
+/**
+ * The webhook ledger's fake. A duplicate (provider, provider_event_id) throws
+ * the SAME 23505 error shape the Drizzle binding surfaces from the unique
+ * index, so the service's isUniqueViolation catch treats both identically.
+ */
+export class InMemoryGatewayEventRepository implements GatewayEventRepository {
+  constructor(private readonly events: GatewayEventRow[]) {}
+
+  async create(input: NewGatewayEvent): Promise<GatewayEventRow> {
+    if (
+      this.events.some(
+        (e) => e.provider === input.provider && e.providerEventId === input.providerEventId,
+      )
+    ) {
+      throw Object.assign(new Error("duplicate key value violates unique constraint"), {
+        code: "23505",
+      });
+    }
+    const row: GatewayEventRow = {
+      id: randomUUID(),
+      ...input,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.events.unshift(row);
+    return row;
+  }
+
+  async listByFirm(firmId: string): Promise<GatewayEventRow[]> {
+    // unshift keeps the store newest-first.
+    return this.events.filter((e) => e.firmId === firmId);
   }
 }

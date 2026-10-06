@@ -9,6 +9,10 @@ import type { Mailer } from "../services/auth/mailer.js";
 import { authRoutes } from "./auth.js";
 import { protectedRoutes } from "./protected.js";
 import { healthRoutes } from "./health.js";
+import { webhookRoutes } from "./webhooks.js";
+import { PaymentsService } from "../services/payments/service.js";
+import { GatewayAccountService } from "../services/gateway/service.js";
+import { GatewayWebhookService } from "../services/gateway/webhooks.js";
 import type { CookieAttrs } from "./sessionCookie.js";
 
 export type ApiRoutesOptions = {
@@ -50,6 +54,22 @@ export async function apiRoutes(
   const cookie: CookieAttrs = options.cookie ?? { sameSite: "lax", secure: false };
 
   await app.register(authRoutes, { authService, cookie });
+  // The Razorpay webhook surface (ticket 04) is PUBLIC — no session; it
+  // authenticates by HMAC against the URL-named firm's webhook secret, so it
+  // mounts outside protectedRoutes with its own service instances (stateless —
+  // sharing the same repositories as the guarded surface's services).
+  const webhookAccountService = repos
+    ? new GatewayAccountService(repos, options.gatewayEncryptionKey ?? null)
+    : null;
+  const webhookService =
+    repos && webhookAccountService
+      ? new GatewayWebhookService(
+          repos,
+          webhookAccountService,
+          new PaymentsService(repos),
+        )
+      : null;
+  await app.register(webhookRoutes, { webhookService });
   await app.register(protectedRoutes, {
     authService,
     repos,

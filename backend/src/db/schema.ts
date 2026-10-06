@@ -1117,6 +1117,41 @@ export const paymentLinks = pgTable(
   ],
 );
 
+/**
+ * Gateway events (V2 slice 1, ticket 04) — the webhook idempotency ledger.
+ * Every Razorpay webhook delivery (or reconciliation fetch, ticket 05) lands
+ * here exactly once, keyed by the provider's event id; the UNIQUE index on
+ * (provider, provider_event_id) is the dedupe wall: the event row and the
+ * payment it produces commit in ONE transaction, so a replayed delivery dies
+ * on the index and writes nothing (the service maps that violation to a
+ * no-op 200).
+ *
+ * - `event_type` is the provider's own event string (payment_link.paid, …) —
+ *   the ledger keeps every delivery, including the non-money ones (spec: a
+ *   payment.failed or expiry event appends here and changes nothing else).
+ * - No soft delete: an event row is immutable audit — append-only like the
+ *   trust ledger (deleted_at would only ever stay null, so the column is
+ *   deliberately absent; the baseline convention yields to append-only).
+ */
+export const gatewayEvents = pgTable(
+  "gateway_events",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    firmId: uuid("firm_id")
+      .notNull()
+      .references(() => firms.id),
+    provider: text("provider").notNull().default("razorpay"),
+    providerEventId: text("provider_event_id").notNull(),
+    eventType: text("event_type").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("gateway_events_firm_id_idx").on(table.firmId),
+    uniqueIndex("gateway_events_provider_event_key").on(table.provider, table.providerEventId),
+  ],
+);
+
 export const firmsRelations = relations(firms, ({ many }) => ({
   users: many(users),
   sessions: many(sessions),

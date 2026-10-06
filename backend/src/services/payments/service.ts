@@ -110,6 +110,20 @@ export class PaymentsService {
    * entry in the same transaction (the ticket-15 hook below).
    */
   async record(firmId: string, input: PaymentInput): Promise<ApiPayment> {
+    return this.repos.transaction((tx) => this.recordWithin(tx, firmId, input));
+  }
+
+  /**
+   * The transactional core of POST /payments, public for the gateway webhook
+   * (ticket 04): the webhook's event row and the payment it produces commit
+   * in ONE transaction, so a replayed delivery cannot double-record. Same
+   * validation order, same roll-up, same trust hook as the manual route.
+   */
+  async recordWithin(
+    tx: AuthRepositories,
+    firmId: string,
+    input: PaymentInput,
+  ): Promise<ApiPayment> {
     const amount = input.amount;
     if (
       typeof amount !== "number" ||
@@ -129,63 +143,60 @@ export class PaymentsService {
     // Server-stamped day (both the reference and the mock ignore client dates).
     const date = this.now().toISOString().slice(0, 10);
 
-    const row = await this.repos.transaction(async (tx) => {
-      let invoice: InvoiceRow | null = null;
-      if (invoiceId) {
-        invoice = await tx.invoices.findById(firmId, invoiceId);
-        if (!invoice) throw new HttpError(404, "Invoice not found");
-      }
+    let invoice: InvoiceRow | null = null;
+    if (invoiceId) {
+      invoice = await tx.invoices.findById(firmId, invoiceId);
+      if (!invoice) throw new HttpError(404, "Invoice not found");
+    }
 
-      // The reference's `b.clientId ?? invoice?.clientId`: an absent clientId
-      // falls back to the invoice's; an explicit "" is no client.
-      let resolvedClientId: string | null = null;
-      if (clientId) {
-        const client = await tx.contacts.findById(firmId, clientId);
-        if (!client) throw new HttpError(400, PAYMENT_CLIENT_MISSING_MESSAGE);
-        resolvedClientId = client.id;
-      } else if (clientId === undefined && invoice) {
-        resolvedClientId = invoice.clientId;
-      }
+    // The reference's `b.clientId ?? invoice?.clientId`: an absent clientId
+    // falls back to the invoice's; an explicit "" is no client.
+    let resolvedClientId: string | null = null;
+    if (clientId) {
+      const client = await tx.contacts.findById(firmId, clientId);
+      if (!client) throw new HttpError(400, PAYMENT_CLIENT_MISSING_MESSAGE);
+      resolvedClientId = client.id;
+    } else if (clientId === undefined && invoice) {
+      resolvedClientId = invoice.clientId;
+    }
 
-      const payment = await tx.payments.create({
-        firmId,
-        invoiceId: invoiceId ?? null,
-        clientId: resolvedClientId,
-        date,
-        amount,
-        method,
-        status: RECORDED_STATUS,
-        trustAccount,
-      });
-
-      if (invoice) await this.rollUp(tx, firmId, invoice);
-
-      // ── TICKET 15 HOOK (trust ledger) — WIRED ────────────────────────────
-      // A trust-flagged payment appends its append-only ledger entry in THIS
-      // transaction, after the roll-up, exactly as the reference's
-      // appendTrust: the running balance is computed by the repository seam
-      // (tx.trust.append — previous balanceAfter + amount, concurrent
-      // same-client appends serialized on a per-client advisory lock), so the
-      // payment, the roll-up and the ledger entry commit or roll back
-      // together. clientId is the payment's already-validated live in-firm
-      // client (null → the unattributed ledger bucket, the reference's "");
-      // caseId comes from the linked invoice (null when unlinked) and the
-      // description is the reference's byte-identical deposit string.
-      if (payment.trustAccount) {
-        await tx.trust.append({
-          firmId,
-          clientId: payment.clientId,
-          caseId: invoice?.caseId ?? null,
-          date: payment.date,
-          description: trustDepositDescription(invoice?.number ?? null),
-          amount: payment.amount,
-        });
-      }
-      // ────────────────────────────────────────────────────────────────────
-
-      return payment;
+    const payment = await tx.payments.create({
+      firmId,
+      invoiceId: invoiceId ?? null,
+      clientId: resolvedClientId,
+      date,
+      amount,
+      method,
+      status: RECORDED_STATUS,
+      trustAccount,
     });
-    return toApiPayment(row);
+
+    if (invoice) await this.rollUp(tx, firmId, invoice);
+
+    // ── TICKET 15 HOOK (trust ledger) — WIRED ────────────────────────────
+    // A trust-flagged payment appends its append-only ledger entry in THIS
+    // transaction, after the roll-up, exactly as the reference's
+    // appendTrust: the running balance is computed by the repository seam
+    // (tx.trust.append — previous balanceAfter + amount, concurrent
+    // same-client appends serialized on a per-client advisory lock), so the
+    // payment, the roll-up and the ledger entry commit or roll back
+    // together. clientId is the payment's already-validated live in-firm
+    // client (null → the unattributed ledger bucket, the reference's "");
+    // caseId comes from the linked invoice (null when unlinked) and the
+    // description is the reference's byte-identical deposit string.
+    if (payment.trustAccount) {
+      await tx.trust.append({
+        firmId,
+        clientId: payment.clientId,
+        caseId: invoice?.caseId ?? null,
+        date: payment.date,
+        description: trustDepositDescription(invoice?.number ?? null),
+        amount: payment.amount,
+      });
+    }
+    // ────────────────────────────────────────────────────────────────────
+
+    return toApiPayment(payment);
   }
 
   /**

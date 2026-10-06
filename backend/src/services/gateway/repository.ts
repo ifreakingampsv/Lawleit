@@ -150,6 +150,9 @@ export interface PaymentLinkRepository {
   create(input: NewPaymentLink): Promise<PaymentLinkRow>;
   /** Live (non-deleted) link in the given firm; null otherwise. */
   findById(firmId: string, id: string): Promise<PaymentLinkRow | null>;
+  /** The live link with this provider link id in the firm; null otherwise —
+   * the webhook's (ticket 04) and the sync's (ticket 05) entry point. */
+  findByProviderLinkId(firmId: string, providerLinkId: string): Promise<PaymentLinkRow | null>;
   /** One invoice's live links, newest first (the mock/reference unshift). */
   listByInvoice(firmId: string, invoiceId: string): Promise<PaymentLinkRow[]>;
   /** Live-row update (status transitions); null when missing/foreign/deleted. */
@@ -158,4 +161,35 @@ export interface PaymentLinkRepository {
 
 export interface PaymentLinkPatch {
   status?: string;
+}
+
+/**
+ * One stored webhook delivery (ticket 04) — the idempotency ledger's row.
+ * The UNIQUE (provider, provider_event_id) index is the dedupe wall: the
+ * Drizzle insert of a replayed event dies with the 23505 unique violation
+ * inside the caller's transaction (so the payment it would produce writes
+ * nothing), and the in-memory fake mirrors that with the same error shape.
+ */
+export interface GatewayEventRow {
+  id: string;
+  firmId: string;
+  provider: string;
+  providerEventId: string;
+  eventType: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/** One delivery to store; the service owns every field. */
+export interface NewGatewayEvent {
+  firmId: string;
+  provider: string;
+  providerEventId: string;
+  eventType: string;
+}
+
+export interface GatewayEventRepository {
+  create(input: NewGatewayEvent): Promise<GatewayEventRow>;
+  /** Live rows for the firm, newest first (the audit listing). */
+  listByFirm(firmId: string): Promise<GatewayEventRow[]>;
 }

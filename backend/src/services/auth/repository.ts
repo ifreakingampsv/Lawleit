@@ -28,6 +28,7 @@ import type { TimeEntryRepository } from "../time/repository.js";
 import type { ExpenseRepository } from "../expenses/repository.js";
 import type {
   GatewayAccountRepository,
+  GatewayEventRepository,
   PaymentLinkRepository,
 } from "../gateway/repository.js";
 import type {
@@ -246,5 +247,10 @@ export interface AuthRepositories {
    * path (ticket 04) flips a link's status and records its payment inside
    * one transaction. */
   paymentLinks: PaymentLinkRepository;
+  /** V2 slice 1 (ticket 04): the webhook idempotency ledger ditto — the
+   * event row and the payment it produces commit in ONE transaction, so a
+   * replayed delivery dies on the unique (provider, provider_event_id) index
+   * and writes nothing. */
+  gatewayEvents: GatewayEventRepository;
   transaction<T>(work: (repos: AuthRepositories) => Promise<T>): Promise<T>;
 }

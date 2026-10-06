@@ -164,9 +164,9 @@ routes, `POST /users`, or the documents upload/download flow — the items marke
 
 ## V2 slice 1 additions (2026-10) — collecting payments via Indian rails
 
-The production backend implements these (migration 0012: `gateway_accounts`;
-`payment_links` and `gateway_events` arrive with the collect/webhook tickets in
-the same slice); the reference server implements the
+The production backend implements these (migrations 0012–0014:
+`gateway_accounts`, `payment_links`, `gateway_events`); the reference server
+implements the
 not-connected surface so the smoke suite certifies both. Per-firm Razorpay
 bring-your-own-keys (ADR-0006): money settles into the firm's own bank —
 Lawleit never holds or routes funds. The provider sits behind a thin
@@ -216,10 +216,13 @@ is an implementation change, not a redesign.
   unauthenticated (server-to-server; mounted outside the session guard):
   Razorpay calls it with `payment_link.paid` / `payment.failed` events. The
   `X-Razorpay-Signature` HMAC-SHA256 header is verified against the URL-named
-  firm's webhook secret — mismatch → 400 (empty `{}` body), unknown firm →
-  404; a valid signature from firm A's secret cannot touch firm B's link
+  firm's webhook secret (computed over the RAW request body) — absence or
+  mismatch → 400 the standard error envelope, unknown firm → 404;
   (cross-firm 404). Events are deduped on the provider event id (`gateway_events`
-  unique per provider) — a replayed delivery is a no-op 2xx. `payment_link.paid`
+  unique per provider) — a replayed delivery is the no-op 2xx `{ recorded: false,
+  duplicate: true }`; every 200 body carries `{ recorded: boolean, duplicate:
+  boolean }`. The 200 body always carries `{ recorded: boolean,
+  duplicate: boolean }`. `payment_link.paid`
   records a Payment with the real instrument mapped into the widened method
   vocabulary (upi/netbanking/card), `trustAccount` hard-wired false, and the
   same-transaction invoice roll-up as a manual record; `payment.failed` and

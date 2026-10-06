@@ -1,11 +1,14 @@
 import { and, desc, eq, isNull } from "drizzle-orm";
-import { gatewayAccounts, paymentLinks } from "../../db/schema.js";
+import { gatewayAccounts, gatewayEvents, paymentLinks } from "../../db/schema.js";
 import type { DbExecutor } from "../auth/drizzle-repository.js";
 import type {
   GatewayAccountPatch,
   GatewayAccountRepository,
   GatewayAccountRow,
+  GatewayEventRepository,
+  GatewayEventRow,
   NewGatewayAccount,
+  NewGatewayEvent,
   NewPaymentLink,
   PaymentLinkPatch,
   PaymentLinkRepository,
@@ -68,6 +71,21 @@ export class DrizzlePaymentLinkRepository implements PaymentLinkRepository {
     return row;
   }
 
+  async findByProviderLinkId(firmId: string, providerLinkId: string): Promise<PaymentLinkRow | null> {
+    const [row] = await this.exec
+      .select()
+      .from(paymentLinks)
+      .where(
+        and(
+          eq(paymentLinks.providerLinkId, providerLinkId),
+          eq(paymentLinks.firmId, firmId),
+          liveLink(),
+        ),
+      )
+      .limit(1);
+    return row ?? null;
+  }
+
   async findById(firmId: string, id: string): Promise<PaymentLinkRow | null> {
     const [row] = await this.exec
       .select()
@@ -99,5 +117,29 @@ export class DrizzlePaymentLinkRepository implements PaymentLinkRepository {
       .where(and(eq(paymentLinks.id, id), eq(paymentLinks.firmId, firmId), liveLink()))
       .returning();
     return row ?? null;
+  }
+}
+
+/**
+ * The webhook ledger's production binding (ticket 04). A replayed delivery
+ * dies on the UNIQUE (provider, provider_event_id) index — postgres surfaces
+ * the raw 23505 code through drizzle, which is exactly what the service's
+ * isUniqueViolation catch maps to the no-op 200.
+ */
+export class DrizzleGatewayEventRepository implements GatewayEventRepository {
+  constructor(private readonly exec: DbExecutor) {}
+
+  async create(input: NewGatewayEvent): Promise<GatewayEventRow> {
+    const [row] = await this.exec.insert(gatewayEvents).values(input).returning();
+    if (!row) throw new Error("gateway event insert returned no row");
+    return row;
+  }
+
+  async listByFirm(firmId: string): Promise<GatewayEventRow[]> {
+    return this.exec
+      .select()
+      .from(gatewayEvents)
+      .where(eq(gatewayEvents.firmId, firmId))
+      .orderBy(desc(gatewayEvents.createdAt), desc(gatewayEvents.id));
   }
 }
