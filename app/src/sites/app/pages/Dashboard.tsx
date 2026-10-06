@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, useOutletContext } from "react-router";
 import { CalendarDays, MessageSquare, Plus, Timer } from "lucide-react";
 import { api } from "@/lib/data";
@@ -46,6 +47,9 @@ export default function Dashboard() {
           ⚙ Customize
         </button>
       </div>
+
+      {/* V2 ticket 09 — production firms sign up onto a labeled sample workspace */}
+      {session?.firm.hasSampleData && <SampleDataBanner />}
 
       {/* quick actions */}
       <Card className="mb-5 flex items-center gap-3 px-5 py-3.5">
@@ -195,5 +199,69 @@ function QuickAction({ icon, label, to }: { icon: React.ReactNode; label: string
     <Link to={to} className="flex items-center gap-2 rounded-lg border border-neutral-200 px-3.5 py-2 text-[13px] font-semibold text-neutral-700 hover:border-lawleit/50 hover:text-lawleit">
       {icon} {label}
     </Link>
+  );
+}
+
+/**
+ * V2 ticket 09 — the labeled sample workspace's banner (production firms
+ * only; the Demo Version never carries the flag). Removal is confirm-first
+ * and reloads the session — every list refetches from a server that no
+ * longer reports hasSampleData.
+ */
+function SampleDataBanner() {
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const remove = async () => {
+    setBusy(true);
+    try {
+      await api.removeSampleData();
+      window.location.reload();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div data-testid="sample-data-banner" className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4">
+      {confirming ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <p className="text-[13.5px] font-semibold text-amber-900">
+            Remove the sample workspace? Clients, cases, and invoices marked "Sample" will be cleared (the audit trail stays).
+          </p>
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              data-testid="sample-remove-confirm"
+              onClick={() => void remove()}
+              disabled={busy}
+              className="rounded-full bg-amber-600 px-4 py-1.5 text-[12.5px] font-bold text-white hover:bg-amber-700 disabled:opacity-60"
+            >
+              {busy ? "Removing…" : "Remove sample data"}
+            </button>
+            <button
+              data-testid="sample-remove-cancel"
+              onClick={() => setConfirming(false)}
+              className="rounded-full border border-neutral-300 bg-white px-4 py-1.5 text-[12.5px] font-semibold text-neutral-700 hover:bg-neutral-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-3">
+          <p className="text-[13.5px] text-amber-900">
+            <span className="font-bold">You're looking at sample data</span> — seeded so you can
+            explore every module safely. Your team's real work starts fresh whenever you're ready.
+          </p>
+          <button
+            data-testid="sample-remove"
+            onClick={() => setConfirming(true)}
+            className="ml-auto rounded-full border border-amber-400 bg-white px-4 py-1.5 text-[12.5px] font-bold text-amber-800 hover:bg-amber-100"
+          >
+            Remove sample data
+          </button>
+        </div>
+      )}
+    </div>
   );
 }

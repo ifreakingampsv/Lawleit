@@ -47,4 +47,13 @@ export class DrizzlePaymentRepository implements PaymentRepository {
       );
     return Number(row?.total ?? 0);
   }
+
+  async softDelete(firmId: string, id: string): Promise<boolean> {
+    const [row] = await this.exec
+      .update(payments)
+      .set({ deletedAt: new Date(), updatedAt: new Date() })
+      .where(and(eq(payments.id, id), eq(payments.firmId, firmId), livePayment()))
+      .returning();
+    return row !== undefined;
+  }
 }

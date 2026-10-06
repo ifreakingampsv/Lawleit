@@ -39,6 +39,7 @@ import { createRazorpayGateway } from "../services/gateway/razorpay.js";
 import type { GatewayService } from "../services/gateway/provider.js";
 import { gatewayRoutes } from "./gateway.js";
 import { paymentLinkRoutes } from "./paymentLinks.js";
+import { SampleDataService } from "../services/sample/service.js";
 import { DB_REQUIRED, extractToken, requireAuth } from "./requestAuth.js";
 
 export type ProtectedRoutesOptions = {
@@ -57,6 +58,8 @@ export type ProtectedRoutesOptions = {
   /** V2 slice 1 (ticket 03): the GatewayService provider seam (tests bind a
    * fake-provider client); production derives the Razorpay binding. */
   gateway?: GatewayService;
+  /** V2 ticket 09: the sample-workspace seeder/remover (null without repos). */
+  sampleService?: SampleDataService | null;
 };
 
 // zod strips unknown keys, so whole-entity saves from the UI (which send id
@@ -154,6 +157,14 @@ export async function protectedRoutes(
   app.patch("/firm", async (request, reply) => {
     const patch = firmPatchSchema.parse(request.body);
     return reply.send(await service(firmService).update(requireAuth(request).firm.id, patch));
+  });
+
+  // V2 ticket 09: clear the labeled sample workspace (any firm user — the
+  // same rule as PATCH /firm; the flag is server-managed either way).
+  app.post("/firm/sample-data/remove", async (request, reply) => {
+    if (!options.sampleService) return reply.status(503).send({ error: DB_REQUIRED });
+    const outcome = await options.sampleService.remove(requireAuth(request).firm.id);
+    return reply.send(outcome);
   });
 
   app.get("/users", async (request, reply) => {

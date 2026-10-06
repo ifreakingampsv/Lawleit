@@ -17,6 +17,9 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
+// Type-only: the sample-workspace state's shape lives with the firm domain
+// types; a type import keeps the schema free of a runtime cycle.
+import type { SampleDataState } from "../services/auth/repository.js";
 
 /**
  * Ticket 07 tables: firms, users, sessions, password_reset_tokens.
@@ -51,6 +54,13 @@ export const firms = pgTable("firms", {
   address: text("address").notNull().default(""),
   plan: text("plan").notNull().default("basic"),
   trialEndsAt: date("trial_ends_at", { mode: "string" }),
+  /**
+   * V2 ticket 09 — the sample-workspace state, SERVER-MANAGED (no client
+   * path writes it; PATCH /firm's zod schema strips it): null = never
+   * seeded; { seeded: true, ...ids } = the labeled sample data is live;
+   * { removed: true } = the owner cleared it and it never comes back.
+   */
+  sampleData: jsonb("sample_data").$type<SampleDataState | null>(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),

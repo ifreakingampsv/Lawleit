@@ -32,6 +32,8 @@ export interface Firm {
   address: string;
   plan: "basic" | "pro" | "advanced";
   trialEndsAt: string; // ISO date
+  /** V2 ticket 09: the labeled sample workspace is live (server-computed). */
+  hasSampleData?: boolean;
 }
 
 export type CaseStatus = "open" | "pending" | "closed";

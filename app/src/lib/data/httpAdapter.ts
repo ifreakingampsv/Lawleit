@@ -189,6 +189,19 @@ class HttpAdapter implements LawleitApi {
   listPayments() { return http<Payment[]>("GET", "/payments"); }
   recordPayment(input: Partial<Payment>) { return http<Payment>("POST", "/payments", { body: input }); }
   listTrustTransactions() { return http<TrustTransaction[]>("GET", "/trust/transactions"); }
+  removeSampleData() {
+    return http<{
+      removed: true;
+      contacts: number;
+      case: number;
+      event: number;
+      task: number;
+      timeEntry: number;
+      invoice: number;
+      payment: number;
+      trustReversal: number;
+    }>("POST", "/firm/sample-data/remove");
+  }
 
   // ---- gateway (V2 slice 1: collecting payments, ADR-0006) ----
   getGatewayAccount() { return http<GatewayAccountStatus>("GET", "/gateway/account"); }

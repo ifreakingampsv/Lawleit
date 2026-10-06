@@ -1,12 +1,16 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { AuthService } from "../services/auth/service.js";
+import type { SampleDataService } from "../services/sample/service.js";
 import { clearSessionCookie, sessionCookie, type CookieAttrs } from "./sessionCookie.js";
 import { DB_REQUIRED, extractToken } from "./requestAuth.js";
 
 export type AuthRoutesOptions = {
   authService: AuthService | null;
   cookie: CookieAttrs;
+  /** V2 ticket 09: seeds the labeled sample workspace after signup (best-
+   * effort — a seed failure never fails the signup; the mock/demo has none). */
+  sampleService?: SampleDataService | null;
 };
 
 /** The contract's signup payload (app signup form: no password field). */
@@ -51,6 +55,23 @@ export async function authRoutes(app: FastifyInstance, options: AuthRoutesOption
     if (!authService) return reply.status(503).send({ error: DB_REQUIRED });
     const input = signupSchema.parse(request.body);
     const result = await authService.register(input);
+    // V2 ticket 09: the labeled sample workspace, best-effort (the signup's
+    // own transaction already committed; a seed failure logs and moves on).
+    if (options.sampleService) {
+      const seeded = await options.sampleService
+        .seedIfNewFirm(result.firm.id)
+        .catch((error: unknown) => {
+          request.log.error(error, "sample seeding failed");
+          return false;
+        });
+      if (seeded) {
+        // The 201 must report the flag the seed just set (register built its
+        // SessionView before the seed ran).
+        result.firm = (await options.sampleService.refreshedFirm(result.firm.id)) ?? result.firm;
+      } else {
+        request.log.info(`firm ${result.firm.id}: sample seeding skipped`);
+      }
+    }
     reply.header("set-cookie", sessionCookie(result.token, cookie));
     return reply.status(201).send(result);
   });

@@ -481,6 +481,15 @@ class MockAdapter implements LawleitApi {
     return p;
   }
   async listTrustTransactions() { this.withSession(); return this.db.trust; }
+  // V2 ticket 09: the Demo Version ships its own full seed and has no sample
+  // flag — the dashboard banner never shows here, so removal is a no-op.
+  async removeSampleData() {
+    this.withSession();
+    return {
+      removed: true as const, contacts: 0, case: 0, event: 0, task: 0,
+      timeEntry: 0, invoice: 0, payment: 0, trustReversal: 0,
+    };
+  }
 
   // ---- gateway (V2 slice 1: the SIMULATED gateway, ADR-0006) ----
   // The demo stores the connection status only — secret material typed into

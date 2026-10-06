@@ -40,6 +40,27 @@ import type { LeadRepository, LeadStageHistoryRepository } from "../leads/reposi
 import type { PaymentRepository } from "../payments/repository.js";
 import type { TrustRepository } from "../trust/repository.js";
 
+/**
+ * The sample-workspace state (V2 ticket 09) — SERVER-MANAGED, stored as the
+ * firms.sample_data jsonb column. Null = never seeded; the seeded state
+ * carries the created ids so removal can find them without name-matching;
+ * the removed state means the owner cleared it and it never comes back.
+ */
+export type SampleDataState =
+  | {
+      seeded: true;
+      contactIds: string[];
+      caseId: string;
+      eventId: string;
+      taskId: string;
+      timeEntryId: string;
+      invoiceId: string;
+      paymentId: string;
+      trustClientId: string;
+      trustAmount: number;
+    }
+  | { removed: true };
+
 export interface FirmRow {
   id: string;
   name: string;
@@ -49,6 +70,8 @@ export interface FirmRow {
   address: string;
   plan: string;
   trialEndsAt: string | null;
+  /** Optional so in-memory create sites and pre-0015 rows need no change. */
+  sampleData?: SampleDataState | null;
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;
@@ -99,7 +122,10 @@ export type ApiUser = Pick<
 export type ApiFirm = Pick<
   FirmRow,
   "id" | "name" | "practiceAreas" | "phone" | "email" | "address" | "plan" | "trialEndsAt"
->;
+> & {
+  /** Server-computed from sample_data — the dashboard banner's trigger. */
+  hasSampleData: boolean;
+};
 
 /** Destructuring is the whitelist — password_hash and bookkeeping cannot leak. */
 export function toApiUser(row: UserRow): ApiUser {
@@ -108,8 +134,11 @@ export function toApiUser(row: UserRow): ApiUser {
 }
 
 export function toApiFirm(row: FirmRow): ApiFirm {
-  const { id, name, practiceAreas, phone, email, address, plan, trialEndsAt } = row;
-  return { id, name, practiceAreas, phone, email, address, plan, trialEndsAt };
+  const { id, name, practiceAreas, phone, email, address, plan, trialEndsAt, sampleData } = row;
+  return {
+    id, name, practiceAreas, phone, email, address, plan, trialEndsAt,
+    hasSampleData: sampleData !== null && sampleData !== undefined && "seeded" in sampleData,
+  };
 }
 
 export interface NewFirm {
@@ -155,6 +184,9 @@ export interface FirmPatch {
   email?: string;
   address?: string;
   plan?: string;
+  /** SERVER-MANAGED — the sample seeder/remover writes it directly at the
+   * repository; the PATCH /firm route's zod schema strips it from clients. */
+  sampleData?: SampleDataState | null;
 }
 
 export interface FirmRepository {

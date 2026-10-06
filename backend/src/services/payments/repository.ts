@@ -108,4 +108,11 @@ export interface PaymentRepository {
    * silently re-inflate the total.
    */
   sumNonFailedForInvoice(firmId: string, invoiceId: string): Promise<number>;
+  /**
+   * V2 ticket 09 — soft-void one live payment (the sample-data removal; the
+   * soft-delete column existed for exactly this future path). The row stays
+   * for the audit; every list/Σ read filters it. Null-safe: false when the
+   * payment is missing, foreign, or already voided.
+   */
+  softDelete(firmId: string, id: string): Promise<boolean>;
 }

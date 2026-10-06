@@ -41,4 +41,13 @@ export class InMemoryPaymentRepository implements PaymentRepository {
       )
       .reduce((sum, p) => sum + p.amount, 0);
   }
+
+  async softDelete(firmId: string, id: string): Promise<boolean> {
+    const row = this.payments.find(
+      (p) => p.id === id && p.firmId === firmId && p.deletedAt === null,
+    );
+    if (!row) return false;
+    row.deletedAt = new Date();
+    return true;
+  }
 }

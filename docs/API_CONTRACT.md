@@ -42,6 +42,7 @@ abbreviated — trust the TypeScript interface `LawleitApi` in `src/lib/data/api
 | GET | /session | `getSession()` | 401/200-null when anonymous |
 | GET | /health | — | `{ ok, service, db, now }`; `db`: ok \| unconfigured \| unreachable (V1; also served prefixless at `/health`) |
 | PATCH | /firm | `updateFirm(patch)` | |
+| POST | /firm/sample-data/remove | `removeSampleData()` | clears the labeled sample workspace (V2 ticket 09); → the removal counts, 409 when nothing is live |
 | GET | /users | `listUsers()` | |
 | POST | /users | — | invite user (V1); owner-only, 201 created user; see below |
 | PATCH | /users/:id | `updateUser(id, patch)` | owner-only; 409 "A firm must keep at least one active owner" (V1 clarifications) |

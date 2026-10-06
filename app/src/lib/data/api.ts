@@ -96,6 +96,25 @@ export interface LawleitApi {
   listTrustTransactions(): Promise<TrustTransaction[]>;
 
   /**
+   * V2 ticket 09 — clears the labeled sample workspace the firm was seeded
+   * with (dashboard banner action). Production: soft-deletes the sample rows
+   * and appends the trust reversal. 409 "No sample data to remove…" when
+   * there is nothing live. The demo adapter resolves a no-op (the demo has
+   * its own full seed and no sample flag).
+   */
+  removeSampleData(): Promise<{
+    removed: true;
+    contacts: number;
+    case: number;
+    event: number;
+    task: number;
+    timeEntry: number;
+    invoice: number;
+    payment: number;
+    trustReversal: number;
+  }>;
+
+  /**
    * V2 slice 1 — collecting payments through the firm's OWN gateway account
    * (ADR-0006 bring-your-own-keys): the owner connects it once, every member
    * collects via hosted payment links, money settles to the firm's bank.

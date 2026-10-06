@@ -1,0 +1,1 @@
+ALTER TABLE "firms" ADD "sample_data" jsonb;

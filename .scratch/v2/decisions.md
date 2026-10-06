@@ -36,3 +36,11 @@ PAN acceptable; current account in exact business name; business proof (GST/Udya
 certificate); the firm's website must show Privacy/Terms/Refund/Contact pages with the
 KYC name in the footer (the #1 activation rejection cause); expect a verification call;
 activation 2–7 business days.
+
+## Follow-up slice decisions (2026-10-06) — auto-adopted per the standing instruction
+
+| # | Question | Decision | Notes |
+|---|---|---|---|
+| Q18 | Seed script (Option B) — exact shape? | **[auto]** Seed ON SIGNUP (production firms only), best-effort in its own step: 2 clients + 1 opposing counsel, 1 case ("Sample matter — cheque bounce (s.138)"), 1 hearing, 1 task, 1 billable time entry, 1 draft invoice, 1 trust deposit — every entity's visible name carries "Sample". Removal = soft-delete rows + a trust REVERSAL entry (the ledger stays append-only; balance returns to ₹0), tracked by a server-managed `firms.sample_data` jsonb flag (null → not seeded; ids → live; `{removed:true}` → never re-seed). Removal endpoint member-writable (matches PATCH /firm's rule); seeding is server-internal. Sample entities are NOT retrofitted to existing firms. | Trust ledger stays append-only; soft-delete columns exist for exactly this future path (payments gains the seam's first softDelete) |
+| Q19 | Conflict checks — thin slice? | **[auto]** `GET /contacts/conflict-check?name=X` (firm-scoped): normalized token overlap against every contact, returning matches + their case links; the case/lead create UI calls it and shows a "possible conflict" warning. Non-blocking (an alert, not a gate) — Bar Council conflict rules are the lawyer's judgment; the tool surfaces the facts. | Full adversarial-conflict modeling is a later slice |
+| Q20 | PWA | **[auto]** Manifest + SVG icon + theme-color meta: the existing SPA becomes installable ("Add to Home screen") at near-zero cost. Native apps remain out of scope. | |

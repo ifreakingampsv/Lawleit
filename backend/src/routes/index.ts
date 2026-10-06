@@ -13,6 +13,7 @@ import { webhookRoutes } from "./webhooks.js";
 import { PaymentsService } from "../services/payments/service.js";
 import { GatewayAccountService } from "../services/gateway/service.js";
 import { GatewayWebhookService } from "../services/gateway/webhooks.js";
+import { SampleDataService } from "../services/sample/service.js";
 import type { CookieAttrs } from "./sessionCookie.js";
 
 export type ApiRoutesOptions = {
@@ -52,8 +53,10 @@ export async function apiRoutes(
         : null;
   const authService = repos ? new AuthService(repos, options.mailer) : null;
   const cookie: CookieAttrs = options.cookie ?? { sameSite: "lax", secure: false };
+  // V2 ticket 09: the sample-workspace seeder/remover (stateless over repos).
+  const sampleService = repos ? new SampleDataService(repos) : null;
 
-  await app.register(authRoutes, { authService, cookie });
+  await app.register(authRoutes, { authService, cookie, sampleService });
   // The Razorpay webhook surface (ticket 04) is PUBLIC — no session; it
   // authenticates by HMAC against the URL-named firm's webhook secret, so it
   // mounts outside protectedRoutes with its own service instances (stateless —
@@ -78,6 +81,7 @@ export async function apiRoutes(
     maxUploadBytes: options.maxUploadBytes,
     gatewayEncryptionKey: options.gatewayEncryptionKey,
     gateway: options.gateway,
+    sampleService,
   });
   await app.register(healthRoutes, { db: options.db ?? null });
 }
