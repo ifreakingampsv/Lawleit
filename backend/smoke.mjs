@@ -367,9 +367,14 @@ section("gateway — the not-connected surface (V2 slice 1)");
   ok(del.status === 503, "DELETE /gateway/account → 503 (the surface is inert)");
 
   const collect = await req("POST", `/invoices/${gwInvoiceId}/payment-link`, { token });
-  ok(collect.status === 503
-    && collect.data?.error === "No payment gateway connected — the firm owner must connect one in Settings",
-    "collect → 503 with the owner-step copy");
+  // A conforming not-connected server answers 503 with one of TWO legitimate
+  // remediation copies: the owner step (reference; production with the key
+  // set but no account connected) or the operator step (production before
+  // GATEWAY_ENCRYPTION_KEY exists — the reference has no key concept at all).
+  const OWNER_STEP = "No payment gateway connected — the firm owner must connect one in Settings";
+  const OPERATOR_STEP = "Payments gateway not configured — set GATEWAY_ENCRYPTION_KEY (see .env.example)";
+  ok(collect.status === 503 && (collect.data?.error === OWNER_STEP || collect.data?.error === OPERATOR_STEP),
+    "collect → 503 with the owner- or operator-step copy");
   const links = await req("GET", `/invoices/${gwInvoiceId}/payment-links`, { token });
   ok(links.status === 200 && Array.isArray(links.data) && links.data.length === 0,
     "link history → 200 empty on a conforming not-connected server");
