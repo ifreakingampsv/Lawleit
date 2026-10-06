@@ -656,6 +656,45 @@ route("POST", "/notifications/read", (ctx) => {
   noContent(ctx.res);
 });
 
+// ---- gateway (V2 slice 1 — the not-connected surface, ADR-0006) ----
+// The reference has no per-firm gateway accounts and no encryption key, so
+// the status read answers the all-null shape, every gateway write answers the
+// operator 503 (the same copy production answers without
+// GATEWAY_ENCRYPTION_KEY), and collecting/syncing answer the owner 503. The
+// smoke suite pins this surface on BOTH servers, which keeps the reference
+// contract-honest without a gateway implementation.
+
+route("GET", "/gateway/account", (ctx) =>
+  json(ctx.res, 200, { connected: false, provider: null, keyId: null, enabled: false, connectedAt: null }));
+
+route("PUT", "/gateway/account", (ctx) => {
+  fail(ctx.res, 503, "Payments gateway not configured — set GATEWAY_ENCRYPTION_KEY (see .env.example)");
+});
+
+route("DELETE", "/gateway/account", (ctx) => {
+  fail(ctx.res, 503, "Payments gateway not configured — set GATEWAY_ENCRYPTION_KEY (see .env.example)");
+});
+
+route("POST", "/invoices/:id/payment-link", (ctx) => {
+  const invoice = find(db.invoices, ctx.params.id);
+  if (!invoice) return fail(ctx.res, 404, "Invoice not found");
+  if (invoice.status === "paid") return fail(ctx.res, 409, "Invoice is already paid");
+  fail(ctx.res, 503, "No payment gateway connected — the firm owner must connect one in Settings");
+});
+
+route("GET", "/invoices/:id/payment-links", (ctx) => {
+  if (!find(db.invoices, ctx.params.id)) return fail(ctx.res, 404, "Invoice not found");
+  json(ctx.res, 200, []);
+});
+
+route("POST", "/payment-links/:id/sync", (ctx) => {
+  fail(ctx.res, 503, "No payment gateway connected — the firm owner must connect one in Settings");
+});
+
+route("POST", "/webhooks/razorpay/:firmId", (ctx) => {
+  fail(ctx.res, 404, "Gateway account not connected");
+}, { public: true });
+
 // ---- misc ----
 route("GET", "/health", (ctx) => json(ctx.res, 200, {
   ok: true, service: "lawleit-reference-backend", seeded: true, now: new Date().toISOString(),

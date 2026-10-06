@@ -348,6 +348,41 @@ section("billing — invoices, payment roll-up, trust ledger");
     "trust ledger appends running balanceAfter for a new client");
 }
 
+section("gateway — the not-connected surface (V2 slice 1)");
+{
+  const iv = await req("POST", "/invoices", { token, body: {
+    lines: [{ description: "Consult", quantity: 1, rate: 100, kind: "flat" }],
+  } });
+  const gwInvoiceId = iv.data?.id;
+
+  const st = await req("GET", "/gateway/account", { token });
+  ok(st.status === 200 && st.data?.connected === false && st.data?.provider === null,
+    "GET /gateway/account → the all-null not-connected shape");
+  const put = await req("PUT", "/gateway/account", { token, body: {
+    keyId: "k", keySecret: "s", webhookSecret: "w",
+  } });
+  ok(put.status === 503 && /GATEWAY_ENCRYPTION_KEY/.test(put.data?.error ?? ""),
+    "PUT /gateway/account → 503 naming the operator step");
+  const del = await req("DELETE", "/gateway/account", { token });
+  ok(del.status === 503, "DELETE /gateway/account → 503 (the surface is inert)");
+
+  const collect = await req("POST", `/invoices/${gwInvoiceId}/payment-link`, { token });
+  ok(collect.status === 503
+    && collect.data?.error === "No payment gateway connected — the firm owner must connect one in Settings",
+    "collect → 503 with the owner-step copy");
+  const links = await req("GET", `/invoices/${gwInvoiceId}/payment-links`, { token });
+  ok(links.status === 200 && Array.isArray(links.data) && links.data.length === 0,
+    "link history → 200 empty on a conforming not-connected server");
+  const missing = await req("GET", "/invoices/00000000-0000-4000-8000-000000000000/payment-links", { token });
+  ok(missing.status === 404, "link history for a foreign/unknown invoice → 404");
+  const sync = await req("POST", "/payment-links/00000000-0000-4000-8000-000000000000/sync", { token });
+  ok(sync.status === 503, "sync → 503 while not connected");
+  const webhook = await req("POST", "/webhooks/razorpay/00000000-0000-4000-8000-000000000000", {
+    body: { event: "payment_link.paid" },
+  });
+  ok(webhook.status === 404, "webhook for an unknown firm → 404 (no gateway to verify against)");
+}
+
 section("documents");
 {
   const d = await req("POST", "/documents", { token, body: { name: "Smoke.docx", folder: "General" } });

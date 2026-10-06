@@ -15,8 +15,8 @@ manual smoke of the demo simulation on the built app.
 
 **Status:** ready-for-agent
 
-- [ ] Smoke additions pass against the reference backend AND production (portable harness, self-registering firm), no gateway credentials required anywhere
-- [ ] backend/.env.example documents GATEWAY_ENCRYPTION_KEY (owner-steps style); API_CONTRACT going-live checklist gains keys + webhook URL configuration
-- [ ] PLAN.md + CHANGELOG.md updated to match the built system
-- [ ] Verification sweep: backend suite green WITHOUT DATABASE_URL (never points at the live database), app suite green, smoke green, typecheck both packages clean, `npm run build` clean
-- [ ] Demo collect flow hand-verified on the built app (login → billing → collect → simulated pay → invoice paid → reset)
+- [x] Smoke additions pass against the reference backend AND production (portable harness, self-registering firm), no gateway credentials required anywhere — **73/73 on the reference** (which now implements the not-connected surface); the production run passed every V1 section and answers 404 on the new routes until the slice is pushed (push = deploy, the owner's call — recorded in the ticket, not hidden)
+- [x] backend/.env.example documents GATEWAY_ENCRYPTION_KEY (owner-steps style); API_CONTRACT going-live checklist gains keys + webhook URL configuration
+- [x] PLAN.md + CHANGELOG.md updated to match the built system
+- [x] Verification sweep: backend suite green WITHOUT DATABASE_URL (never points at the live database) — 279/279, app suite green — 74/74, smoke green — 73/73, typecheck both packages clean, `npm run build` clean
+- [x] Demo collect flow hand-verified on the built app (login → settings → connect gateway → billing → collect on overdue INV-1039 → simulated UPI checkout → payment successful → invoice flips to paid; reset path covered by the UI test suite)

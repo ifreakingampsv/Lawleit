@@ -232,3 +232,60 @@ The V1 build: 20 tracer-bullet tickets (specs + post-build notes in
   milestones; API_CONTRACT.md extended with the V1-cutover additions (POST /users
   invites, documents sign-upload/download, GET /health, signup payload, auth +
   patch-semantics notes).
+
+## Session 4 — 2026-10-03 → 2026-10-06
+
+- (plan) V2 slice 1 planned via the grill → to-spec → to-tickets pipeline
+  (grill-with-docs): decision log `.scratch/v2/decisions.md` (Q1–Q17; owner
+  pre-approved agent recommendations), spec `.scratch/v2/spec.md`, 8
+  tracer-bullet tickets, ADR-0006 (Razorpay per-firm accounts). Research
+  finding that decided the money model: RBI's Payment Aggregator Directions
+  require ₹40L+ turnover proof for route/split products — so each firm connects
+  its OWN Razorpay (bring-your-own-keys); money settles direct to the firm's
+  bank, Lawleit never touches funds.
+- (data) Ticket 01: payment method vocabulary widened with the Indian rails —
+  card | echeck | wallet | **upi | netbanking** across contract, production
+  backend, reference backend, mock adapter, and the record-payment UI (the
+  schema comment's reserved V2 seam); "cheque" deliberately still outside.
+- (backend) Ticket 02: gateway accounts — migration 0012, per-firm one live
+  Razorpay account (partial unique firm_id), AES-256-GCM-encrypted key/webhook
+  secrets at rest (`GATEWAY_ENCRYPTION_KEY`, optional-env pattern: unset →
+  gateway writes 503), owner-only connect/replace/disconnect, secrets
+  write-only over the API and never logged.
+- (backend) Ticket 03: collect — migration 0013 `payment_links`; POST
+  /invoices/:id/payment-link creates a Razorpay Payment Link for the invoice's
+  OUTSTANDING paise through the firm's account (GatewayService seam; tests bind
+  a fake provider HTTP server); paid → 409, unknown/foreign → 404, no gateway →
+  503 owner-step copy, provider failure → clean 502.
+- (backend) Ticket 04: webhook — migration 0014 `gateway_events` (unique
+  (provider, provider_event_id) = the idempotency wall); public
+  POST /webhooks/razorpay/:firmId verifies the HMAC-SHA256 X-Razorpay-Signature
+  over the RAW body against the URL firm's secret (encapsulated content-type
+  parser keeps the raw bytes), then payment_link.paid records the payment
+  through PaymentsService.recordWithin — the SAME transactional path as the
+  manual route (roll-up, partial-keeps-draft, trust hook) with trustAccount
+  hard-wired false; replays die on the index → no-op 200; cross-firm 404/400.
+- (backend) Ticket 05: sync — POST /payment-links/:id/sync re-fetches the link
+  (ProviderLink now carries the payment instrument) and self-heals a missed
+  webhook, sharing the webhook's dedupe wall via `sync:{providerLinkId}` event
+  ids.
+- (frontend) Tickets 06+07: httpAdapter + mockAdapter implement the six gateway
+  endpoints (plus demo-only getPaymentLink/payMockLink); Settings gains the
+  owner-only Payments gateway card (connect/replace/disconnect, KYC checklist,
+  webhook-URL hint, operator-503 copy); the invoice modal gains the Collect
+  card (create link, copy, prefilled WhatsApp deep link, status chips, sync);
+  the payments list renders the widened methods; the Demo Version ships a
+  Razorpay-style simulated checkout at /pay/:id (UPI/card/netbanking, failure
+  toggle) that pays through the same mock record path and resets with the demo.
+- (smoke) Ticket 08: smoke grows to 73 assertions — the gateway not-connected
+  surface (status shape, operator 503 on writes, owner 503 on collect/sync,
+  empty history, unknown-firm webhook 404) is pinned on BOTH the reference
+  backend (which now implements the not-connected surface) and any conforming
+  server; production certifies the new routes on the next push (its V1 surface
+  verified green in this session's run).
+- (docs) backend/.env.example documents GATEWAY_ENCRYPTION_KEY (owner-steps
+  style); API_CONTRACT going-live checklist gains the activate-collecting step.
+- (verify) Final sweep: backend 279/279 (361 with skips; DB twins verified in
+  prior runs against the real DB), app 74/74, smoke 73/73 on the reference,
+  typecheck both packages clean, `npm run build` clean. All work committed
+  locally; push (which deploys Vercel ×2 + Render) is the owner's call.

@@ -146,3 +146,21 @@ Everything else — demo, production backend, deploys, docs — no longer waits 
   land in the server logs until a Resend key is configured on Render. First
   post-V1 items: the Resend key + the fresh-install seed-script decision (fresh
   installs verify via the portable smoke suite meanwhile).
+
+## V2 slice 1 — collecting payments via Indian rails (2026-10, DONE)
+
+The first post-V1 slice shipped through the grill → to-spec → to-tickets
+pipeline: decision log `.scratch/v2/decisions.md`, spec `.scratch/v2/spec.md`,
+8 tracer-bullet tickets, ADR-0006. **Each firm connects its OWN Razorpay
+account** (bring-your-own-keys) — RBI's Payment Aggregator Directions require
+₹40L+ turnover proof for route/split products, so Lawleit-as-collector is
+legally unreachable; money settles direct to the firm's bank and Lawleit never
+holds funds. The owner connects once (Settings, owner-only, AES-256-GCM-
+encrypted secrets); any member collects via hosted payment links (copy /
+prefilled WhatsApp); the webhook records payments through the same
+transactional roll-up as manual records, deduped on the provider event id; a
+"sync" self-heals a webhook lost to an API cold start. The Demo Version
+simulates the whole flow at `/pay/:id`. Method vocabulary widened to
+card | echeck | wallet | upi | netbanking. Test posture: backend 279 (route +
+DB twins), app 74 (incl. the simulated-checkout UI flow), smoke 73 (the
+not-connected surface pinned on BOTH backends).

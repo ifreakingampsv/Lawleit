@@ -248,6 +248,12 @@ is an implementation change, not a redesign.
 2. `VITE_API_MODE=http` and `VITE_API_BASE_URL=https://your-api/v1` — no source
    changes needed.
 3. Run `cd app && npm run smoke:api` against your API: the suite asserts the
-   contract behaviors (numbering, roll-up, trust ledger, conversion) — all 55
-   must pass.
+   contract behaviors (numbering, roll-up, trust ledger, conversion, the
+   gateway not-connected surface) — all must pass.
 4. Deploy; the SPA-fallback build already emits one entrypoint per route.
+5. Activating collecting (V2 slice 1): set `GATEWAY_ENCRYPTION_KEY` on the API
+   (see `backend/.env.example`); each firm connects its own Razorpay account in
+   Settings → Payments gateway; configure each firm's Razorpay webhook to
+   `{APP_BASE_URL}/api/v1/webhooks/razorpay/{firm id}` with that firm's webhook
+   secret (active on payment_link events). Money settles to the firm's bank;
+   Lawleit never holds funds (ADR-0006).
