@@ -25,6 +25,9 @@ export interface BuildAppDeps {
    * bind a RazorpayGateway pointed at a fake provider server). Production
    * uses the real api.razorpay.com client. */
   gateway?: GatewayService;
+  /** V2 ticket 09: the sample workspace seeds on signup by default; suites
+   * asserting on a pristine empty firm opt out with false. */
+  sampleSeeding?: boolean;
 }
 
 /**
@@ -115,6 +118,7 @@ export async function buildApp(
     maxUploadBytes: config.storage?.maxUploadBytes,
     gatewayEncryptionKey: config.gatewayEncryptionKey,
     gateway: deps.gateway ?? createRazorpayGateway(),
+    sampleSeeding: deps.sampleSeeding,
   });
   // The reference backend also serves /health prefixless; the smoke suite and
   // the vite proxy rely on both forms.

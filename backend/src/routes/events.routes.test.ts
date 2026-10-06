@@ -176,7 +176,7 @@ describe("events (ticket 11)", () => {
   // Two firms share one repo set on one app — same as two tenants on one API.
   async function setup(): Promise<void> {
     mailer = new CapturingMailer();
-    app = await buildApp(testConfig, {
+    app = await buildApp(testConfig, { sampleSeeding: false,
       repositories: inMemoryAuthRepositories(),
       mailer,
     });

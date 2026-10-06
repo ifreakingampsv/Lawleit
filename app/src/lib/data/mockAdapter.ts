@@ -290,6 +290,26 @@ class MockAdapter implements LawleitApi {
     this.save();
     return c;
   }
+  async conflictCheck(name: string) {
+    this.withSession();
+    // Mirrors the production service's token overlap (service.ts
+    // conflictTokens): lowercase, split on non-alphanumerics, ≥ 3 chars.
+    const tokens = name.toLowerCase().split(/[^a-z0-9]+/).filter((t) => t.length >= 3);
+    if (tokens.length === 0) return { query: name, matches: [] };
+    const matches = this.db.contacts.filter((c) => {
+      const candidate = c.name.toLowerCase().split(/[^a-z0-9]+/).filter((t) => t.length >= 3);
+      return candidate.some((t) => tokens.includes(t));
+    });
+    return {
+      query: name,
+      matches: matches.map((c) => ({
+        id: c.id, name: c.name, type: c.type,
+        caseNumbers: this.db.cases
+          .filter((k) => k.clientId === c.id || c.caseIds.includes(k.id))
+          .map((k) => k.number),
+      })),
+    };
+  }
   async updateContact(id: string, patch: Partial<Contact>) {
     this.withSession();
     const c = this.db.contacts.find((x) => x.id === id);

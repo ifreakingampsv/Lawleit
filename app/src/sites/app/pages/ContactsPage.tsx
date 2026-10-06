@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "@/lib/data";
 import { useAsync, fmtDate } from "@/lib/hooks";
 import { Card, Modal, NewButton, PageHeader, Field, inputCls, Avatar, Table } from "../ui";
@@ -109,6 +109,7 @@ export default function ContactsPage() {
       <Modal open={creating} onClose={() => setCreating(false)} title="New contact" testid="contact-modal">
         <div className="space-y-4">
           <Field label="Full name"><input data-testid="contact-name" className={inputCls} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
+          <ConflictWarning name={form.name} />
           <Field label="Type">
             <select className={inputCls} value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
               {TYPES.map((t) => <option key={t}>{t}</option>)}
@@ -122,6 +123,48 @@ export default function ContactsPage() {
           <button data-testid="contact-save" onClick={create} className="w-full rounded-full bg-lawleit py-2.5 text-[14px] font-bold text-white hover:bg-lawleit-dark">Save contact</button>
         </div>
       </Modal>
+    </div>
+  );
+}
+
+/**
+ * V2 ticket 10 — the conflict screen: as the party's name is typed, a
+ * debounced check against the firm's existing contacts surfaces possible
+ * conflicts (name overlap + the matters they appear on). NON-BLOCKING by
+ * decision: the Bar Council conflict judgment stays the lawyer's — the tool
+ * just makes sure it's an informed one.
+ */
+function ConflictWarning({ name }: { name: string }) {
+  const [warning, setWarning] = useState<{ id: string; name: string; type: string; caseNumbers: string[] }[]>([]);
+
+  useEffect(() => {
+    const trimmed = name.trim();
+    if (trimmed.length < 3) {
+      setWarning([]);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      api
+        .conflictCheck(trimmed)
+        .then((out) => setWarning(out.matches))
+        .catch(() => setWarning([]));
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [name]);
+
+  if (warning.length === 0) return null;
+  return (
+    <div data-testid="conflict-warning" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+      <p className="text-[12.5px] font-bold text-amber-900">⚠ Possible conflict — check before saving</p>
+      <ul className="mt-1.5 space-y-1">
+        {warning.map((m) => (
+          <li key={m.id} className="text-[12.5px] text-amber-900">
+            <span className="font-semibold">{m.name}</span>
+            <span className="capitalize"> ({m.type})</span>
+            {m.caseNumbers.length > 0 && <span> — on {m.caseNumbers.join(", ")}</span>}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

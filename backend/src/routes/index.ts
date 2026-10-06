@@ -33,6 +33,9 @@ export type ApiRoutesOptions = {
   /** V2 slice 1 (ticket 03): the GatewayService provider seam (tests bind a
    * fake-provider client); production derives the Razorpay binding. */
   gateway?: GatewayService;
+  /** V2 ticket 09: the sample workspace seeds on signup by default; suites
+   * asserting on empty-firm state opt out with false. */
+  sampleSeeding?: boolean;
 };
 
 /**
@@ -54,7 +57,10 @@ export async function apiRoutes(
   const authService = repos ? new AuthService(repos, options.mailer) : null;
   const cookie: CookieAttrs = options.cookie ?? { sameSite: "lax", secure: false };
   // V2 ticket 09: the sample-workspace seeder/remover (stateless over repos).
-  const sampleService = repos ? new SampleDataService(repos) : null;
+  // On by default; the buildApp/test seam can switch it off for suites that
+  // assert on a pristine empty firm.
+  const sampleService =
+    repos && options.sampleSeeding !== false ? new SampleDataService(repos) : null;
 
   await app.register(authRoutes, { authService, cookie, sampleService });
   // The Razorpay webhook surface (ticket 04) is PUBLIC — no session; it

@@ -52,6 +52,16 @@ export async function contactRoutes(
     return service().list(requireAuth(request).firm.id);
   });
 
+  // V2 ticket 10: the conflict screen (docs/API_CONTRACT.md) — read-only,
+  // non-blocking; find-my-way gives the static segment priority over
+  // /contacts/:id regardless of registration order.
+  app.get("/contacts/conflict-check", async (request) => {
+    const { name } = z
+      .object({ name: z.string().min(1, "Name is required") })
+      .parse(request.query ?? {});
+    return service().conflictCheck(requireAuth(request).firm.id, name);
+  });
+
   // The reference defaults an absent body ({}) into a bare "New contact".
   app.post("/contacts", async (request, reply) => {
     const input = contactCreateSchema.parse(request.body ?? {});

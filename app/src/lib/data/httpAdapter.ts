@@ -153,6 +153,11 @@ class HttpAdapter implements LawleitApi {
   listContacts() { return http<Contact[]>("GET", "/contacts"); }
   getContact(id: string) { return getOrNull<Contact>(`/contacts/${id}`); }
   createContact(input: Partial<Contact>) { return http<Contact>("POST", "/contacts", { body: input }); }
+  conflictCheck(name: string) {
+    return http<{ query: string; matches: { id: string; name: string; type: string; caseNumbers: string[] }[] }>(
+      "GET", "/contacts/conflict-check", { query: { name } },
+    );
+  }
   updateContact(id: string, patch: Partial<Contact>) { return http<Contact>("PATCH", `/contacts/${id}`, { body: patch }); }
   deleteContact(id: string) { return http<void>("DELETE", `/contacts/${id}`); }
 

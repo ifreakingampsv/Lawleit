@@ -376,7 +376,7 @@ describe("collect — payment links (ticket 03)", () => {
     const downProvider = await startFakeRazorpay("down");
     mailer = new CapturingMailer();
     repos = inMemoryAuthRepositories();
-    app = await buildApp(testConfig, {
+    app = await buildApp(testConfig, { sampleSeeding: false,
       repositories: repos, mailer, gateway: new RazorpayGateway(`${downProvider.url}/v1`),
     });
     firmA = await signupFirm(app, mailer, "owner@firm-a.example", "Aditi");
@@ -465,7 +465,7 @@ describe("reconciliation sync (ticket 05)", () => {
     provider = await startFakeRazorpay(mode);
     mailer = new CapturingMailer();
     repos = inMemoryAuthRepositories();
-    app = await buildApp(testConfig, {
+    app = await buildApp(testConfig, { sampleSeeding: false,
       repositories: repos,
       mailer,
       gateway: new RazorpayGateway(`${provider.url}/v1`),

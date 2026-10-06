@@ -4,6 +4,7 @@ import { closeDb } from "../db/client.js";
 import type { AppConfig } from "../config.js";
 import type { FastifyInstance } from "fastify";
 import { CapturingMailer, inMemoryAuthRepositories } from "../services/auth/testing.js";
+import type { AuthRepositories } from "../services/auth/repository.js";
 import { CONTACT_CASE_ID_MESSAGE, CONTACT_TYPE_MESSAGE } from "../services/contacts/service.js";
 
 /**
@@ -83,6 +84,14 @@ async function signupFirm(
 }
 
 const bearer = (token: string) => ({ authorization: `Bearer ${token}` });
+
+/**
+ * Ticket 09 changed signup: every new firm starts with 3 labeled sample
+ * contacts. These tests assert on the contacts THEY created, so everything
+ * named "Sample" is filtered out of listings first.
+ */
+const nonSample = <T extends { name: string }>(list: T[]): T[] =>
+  list.filter((c) => !c.name.includes("Sample"));
 
 /** Owner invites a user, then the invitee sets a password and logs in. */
 async function inviteAndOnboard(
@@ -184,7 +193,8 @@ describe("contacts (ticket 09)", () => {
     const list = await app.inject({ method: "GET", url: "/api/v1/contacts", headers: bearer(firmA.token) });
     expect(list.statusCode).toBe(200);
     const contacts = list.json() as { id: string; name: string }[];
-    expect(contacts.map((c) => c.name)).toEqual(["Meridian Logistics Pvt Ltd", "Harish Chadha"]);
+    expect(nonSample(contacts).map((c) => c.name)).toEqual(["Meridian Logistics Pvt Ltd", "Harish Chadha"]);
+    expect(contacts).toHaveLength(5); // + the 3 labeled sample contacts (ticket 09)
     expect(contacts.every((c) => typeof c.id === "string" && c.id.length > 0)).toBe(true);
     await app.close();
   });
@@ -283,7 +293,7 @@ describe("contacts (ticket 09)", () => {
     expect(gone.statusCode).toBe(404);
 
     const list = await app.inject({ method: "GET", url: "/api/v1/contacts", headers: bearer(firmA.token) });
-    expect(list.json()).toEqual([]);
+    expect(nonSample(list.json() as { name: string }[])).toEqual([]);
 
     const repeat = await app.inject({
       method: "DELETE", url: `/api/v1/contacts/${contact.id}`, headers: bearer(firmA.token),
@@ -309,7 +319,7 @@ describe("contacts (ticket 09)", () => {
       expect(res.statusCode, JSON.stringify(payload)).toBe(400);
       expect(res.json()).toEqual({ error: message });
     }
-    expect((await app.inject({ method: "GET", url: "/api/v1/contacts", headers: bearer(firmA.token) })).json()).toEqual([]);
+    expect(nonSample((await app.inject({ method: "GET", url: "/api/v1/contacts", headers: bearer(firmA.token) })).json() as { name: string }[])).toEqual([]);
     await app.close();
   });
 
@@ -357,12 +367,12 @@ describe("contacts (ticket 09)", () => {
 
     const listB = await app.inject({ method: "GET", url: "/api/v1/contacts", headers: bearer(firmB.token) });
     const namesB = (listB.json() as { name: string }[]).map((c) => c.name);
-    expect(namesB).toEqual(["B's Own"]);
+    expect(nonSample(namesB.map((name) => ({ name })))).toEqual([{ name: "B's Own" }]);
     expect(namesB).not.toContain("Harish Chadha");
 
     // A's list is untouched by all of it.
     const listA = await app.inject({ method: "GET", url: "/api/v1/contacts", headers: bearer(firmA.token) });
-    expect((listA.json() as { id: string }[]).map((c) => c.id)).toEqual([contactA.id]);
+    expect(nonSample(listA.json() as { id: string; name: string }[]).map((c) => c.id)).toEqual([contactA.id]);
     await app.close();
   });
 
@@ -373,7 +383,7 @@ describe("contacts (ticket 09)", () => {
     const listA = await app.inject({ method: "GET", url: "/api/v1/contacts", headers: bearer(firmA.token) });
     expect((listA.json() as { id: string }[]).map((c) => c.id)).toContain(created.id);
     const listB = await app.inject({ method: "GET", url: "/api/v1/contacts", headers: bearer(firmB.token) });
-    expect(listB.json()).toEqual([]);
+    expect(nonSample(listB.json() as { name: string }[])).toEqual([]);
     await app.close();
   });
 
@@ -391,7 +401,7 @@ describe("contacts (ticket 09)", () => {
     });
     expect(second.id).not.toBe(first.id);
     const list = await app.inject({ method: "GET", url: "/api/v1/contacts", headers: bearer(firmA.token) });
-    expect((list.json() as { id: string }[]).map((c) => c.id)).toEqual([second.id]);
+    expect(nonSample(list.json() as { id: string; name: string }[]).map((c) => c.id)).toEqual([second.id]);
     await app.close();
   });
 
@@ -422,5 +432,100 @@ describe("contacts (ticket 09)", () => {
     expect(res.statusCode).toBe(503);
     expect(res.json().error).toMatch(/DATABASE_URL/);
     await app.close();
+  });
+});
+
+describe("the conflict screen (ticket 10)", () => {
+  let app: FastifyInstance;
+  let mailer: CapturingMailer;
+  let repos: AuthRepositories;
+  let firmA: FirmContext;
+  let firmB: FirmContext;
+
+  afterEach(async () => {
+    await closeDb();
+  });
+
+  afterAll(async () => {
+    await closeDb();
+  });
+
+  async function setup(): Promise<void> {
+    mailer = new CapturingMailer();
+    repos = inMemoryAuthRepositories();
+    app = await buildApp(testConfig, { repositories: repos, mailer });
+    firmA = await signupFirm(app, mailer, "owner@firm-a.example", "Aditi");
+    firmB = await signupFirm(app, mailer, "owner@firm-b.example", "Bharat");
+    // Firm A carries the conflicting party, on a matter. (The firm ALSO has
+    // ticket 09's sample clients — "Sample client — Ramesh Sharma" et al. —
+    // which the second test turns into an assertion.)
+    const contact = await app.inject({
+      method: "POST", url: "/api/v1/contacts", headers: bearer(firmA.token),
+      payload: { type: "client", name: "Keshavan Pillai" },
+    });
+    const clientId = (contact.json() as { id: string }).id;
+    await app.inject({
+      method: "POST", url: "/api/v1/cases", headers: bearer(firmA.token),
+      payload: { title: "Cheque bounce complaint", clientId },
+    });
+  }
+
+  it("an exact and a partial-name match surface with the case numbers", async () => {
+    await setup();
+    for (const name of ["Keshavan Pillai", "keshavan  pillai", "Pillai Keshavan", "Pillai & Co (for Keshavan)"]) {
+      const res = await app.inject({
+        method: "GET", url: `/api/v1/contacts/conflict-check?name=${encodeURIComponent(name)}`,
+        headers: bearer(firmA.token),
+      });
+      expect(res.statusCode).toBe(200);
+      const out = res.json() as { query: string; matches: { name: string; caseNumbers: string[] }[] };
+      expect(out.matches).toHaveLength(1);
+      expect(out.matches[0]!.name).toBe("Keshavan Pillai");
+      expect(out.matches[0]!.caseNumbers[0]).toMatch(/^2026-\d{4}$/);
+    }
+  });
+
+  it("the ticket-09 sample clients are conflict-detectable like any other party", async () => {
+    await setup();
+    const res = await app.inject({
+      method: "GET", url: "/api/v1/contacts/conflict-check?name=Ramesh%20Sharma",
+      headers: bearer(firmA.token),
+    });
+    const out = res.json() as { matches: { name: string; caseNumbers: string[] }[] };
+    expect(out.matches).toHaveLength(1);
+    expect(out.matches[0]!.name).toBe("Sample client — Ramesh Sharma");
+    expect(out.matches[0]!.caseNumbers[0]).toMatch(/^2026-\d{4}$/);
+  });
+
+  it("a distinct name is silent; short junk is 400; other firms see nothing of each other's parties", async () => {
+    await setup();
+    const distinct = await app.inject({
+      method: "GET", url: "/api/v1/contacts/conflict-check?name=Whitmore%20Global",
+      headers: bearer(firmA.token),
+    });
+    expect(distinct.json()).toEqual({ query: "Whitmore Global", matches: [] });
+
+    const blank = await app.inject({
+      method: "GET", url: "/api/v1/contacts/conflict-check",
+      headers: bearer(firmA.token),
+    });
+    expect(blank.statusCode).toBe(400);
+
+    // Firm A's party is invisible to firm B...
+    const other = await app.inject({
+      method: "GET", url: "/api/v1/contacts/conflict-check?name=Keshavan%20Pillai",
+      headers: bearer(firmB.token),
+    });
+    expect(other.json()).toEqual({ query: "Keshavan Pillai", matches: [] });
+
+    // ...while firm B's identically-named SAMPLE client matches only firm B's
+    // own row — firm scoping, proven through the screen itself.
+    const own = await app.inject({
+      method: "GET", url: "/api/v1/contacts/conflict-check?name=Ramesh%20Sharma",
+      headers: bearer(firmB.token),
+    });
+    const out = own.json() as { matches: { name: string }[] };
+    expect(out.matches).toHaveLength(1);
+    expect(out.matches[0]!.name).toBe("Sample client — Ramesh Sharma");
   });
 });

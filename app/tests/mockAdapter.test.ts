@@ -317,3 +317,17 @@ describe("documents — real files (ticket 17)", () => {
     expect(kindForFile("", "h.docx")).toBe("doc");
   });
 });
+
+describe('the conflict screen (ticket 10)', () => {
+  it('surfaces token-overlap matches with their case numbers, firm-scoped by the store', async () => {
+    const api = await fresh();
+    // The demo seed's contacts are the match universe.
+    const out = await api.conflictCheck('kavita menon');
+    expect(out.matches).toHaveLength(1);
+    expect(out.matches[0]!.name).toBe('Kavita Menon');
+    expect(out.matches[0]!.caseNumbers.length).toBeGreaterThan(0);
+    const app2 = await fresh();
+    const none = await app2.conflictCheck('Zyxyz Qwaffle');
+    expect(none.matches).toEqual([]);
+  });
+});

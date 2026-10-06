@@ -7,6 +7,31 @@ import { CONTACT_TYPES, toApiContact } from "./repository.js";
 export const CONTACT_TYPE_MESSAGE = "Type must be client, company, opposing, witness, or referral";
 /** Shown (as a 400) when a caseIds entry is not a uuid — the column is uuid[]. */
 export const CONTACT_CASE_ID_MESSAGE = "Invalid case id";
+
+/** The conflict-check response (docs/API_CONTRACT.md GET /contacts/conflict-check). */
+export interface ConflictCheckOutcome {
+  query: string;
+  matches: {
+    id: string;
+    name: string;
+    type: string;
+    /** The matters the matched party appears on (empty for partyless contacts). */
+    caseNumbers: string[];
+  }[];
+}
+
+/**
+ * Significant-token extraction for the conflict screen: lowercase, split on
+ * non-alphanumerics, drop tokens under 3 chars (initials, "and", "dr.") —
+ * cheap and deterministic; a fuzzy matcher can replace it behind the same
+ * response shape later.
+ */
+export function conflictTokens(name: string): string[] {
+  return name
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((t) => t.length >= 3);
+}
 /** UUID shape of every production id (same rule as the :id params). */
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_CASE_LINKS = 100;
@@ -106,6 +131,39 @@ export class ContactsService {
   async list(firmId: string): Promise<ApiContact[]> {
     const rows = await this.repos.contacts.listByFirm(firmId);
     return rows.map(toApiContact);
+  }
+
+  /**
+   * GET /contacts/conflict-check?name=… (V2 ticket 10, decision Q19) — the
+   * thin conflict screen: normalized token overlap (lowercase, split on
+   * non-alphanumerics, significant tokens ≥ 3 chars) between the queried
+   * name and every live contact of the firm. NON-BLOCKING by design — the
+   * response carries the matches and the case numbers they appear on; the
+   * Bar Council conflict judgment stays the lawyer's.
+   */
+  async conflictCheck(firmId: string, name: string): Promise<ConflictCheckOutcome> {
+    const tokens = conflictTokens(name);
+    if (tokens.length === 0) return { query: name, matches: [] };
+
+    const rows = await this.repos.contacts.listByFirm(firmId);
+    const matches = rows.filter((c) => {
+      const candidate = conflictTokens(c.name);
+      return candidate.some((t) => tokens.includes(t));
+    });
+    if (matches.length === 0) return { query: name, matches: [] };
+
+    const allCases = await this.repos.cases.listByFirm(firmId, {});
+    return {
+      query: name,
+      matches: matches.map((c) => ({
+        id: c.id,
+        name: c.name,
+        type: c.type,
+        caseNumbers: allCases
+          .filter((k) => k.clientId === c.id || (c.caseIds ?? []).includes(k.id))
+          .map((k) => k.number),
+      })),
+    };
   }
 
   /** 404 for missing, soft-deleted, and other firms' contacts alike. */

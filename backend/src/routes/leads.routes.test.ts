@@ -170,7 +170,7 @@ describe("leads (ticket 16)", () => {
   async function setup(): Promise<void> {
     mailer = new CapturingMailer();
     repos = inMemoryAuthRepositories();
-    app = await buildApp(testConfig, { repositories: repos, mailer });
+    app = await buildApp(testConfig, { sampleSeeding: false, repositories: repos, mailer });
     firmA = await signupFirm(app, mailer, "owner@firm-a.example", "Aditi");
     firmB = await signupFirm(app, mailer, "owner@firm-b.example", "Bharat");
   }

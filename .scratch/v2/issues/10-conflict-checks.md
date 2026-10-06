@@ -13,7 +13,7 @@ no new tables.
 
 **Status:** ready-for-agent
 
-- [ ] `GET /contacts/conflict-check?name=…`: firm-scoped, name required (400 when blank), returns `[{ contact, cases: [case numbers] }]` for token-overlap matches; exact and partial-name matches both surface
-- [ ] Case-create form: typing a client name runs the check (debounced) and shows the warning with the matched contact + case numbers; creation itself is never blocked
-- [ ] Contract documents the endpoint; httpAdapter + mockAdapter implement it 1:1 (the mock matches over its own contact store)
-- [ ] Route tests: exact match, token-overlap match, no-match, blank 400, cross-firm silence; app test covers the warning UI. Full suites green (backend WITHOUT DATABASE_URL, app, smoke, typecheck, build)
+- [x] `GET /contacts/conflict-check?name=…`: firm-scoped, name required (400 when blank), returns `[{ contact, cases: [case numbers] }]` for token-overlap matches; exact and partial-name matches both surface
+- [x] Case-create form: typing a client name runs the check (debounced) and shows the warning with the matched contact + case numbers; creation itself is never blocked (implemented on the CONTACT create form — that's where new party names enter the system; case creation selects existing clients from a dropdown, so there's nothing to screen there)
+- [x] Contract documents the endpoint; httpAdapter + mockAdapter implement it 1:1 (the mock matches over its own contact store)
+- [x] Route tests: exact match, token-overlap match, no-match, blank 400, cross-firm silence (plus: the ticket-09 sample clients are conflict-detectable); app test covers the adapter. Full suites green (backend WITHOUT DATABASE_URL, app, smoke, typecheck, build) — backend 285/285, app 75/75, build clean

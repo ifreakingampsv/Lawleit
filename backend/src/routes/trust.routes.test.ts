@@ -194,7 +194,7 @@ describe("trust ledger (ticket 15)", () => {
     mailer = new CapturingMailer();
     repos = inMemoryAuthRepositories();
     trust = new TrustService(repos);
-    app = await buildApp(testConfig, { repositories: repos, mailer });
+    app = await buildApp(testConfig, { sampleSeeding: false, repositories: repos, mailer });
     firmA = await signupFirm(app, mailer, "owner@firm-a.example", "Aditi");
     firmB = await signupFirm(app, mailer, "owner@firm-b.example", "Bharat");
   }

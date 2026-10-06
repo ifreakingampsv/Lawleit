@@ -60,6 +60,15 @@ export interface LawleitApi {
   listContacts(): Promise<Contact[]>;
   getContact(id: string): Promise<Contact | null>;
   createContact(input: Partial<Contact>): Promise<Contact>;
+  /**
+   * V2 ticket 10 — the conflict screen: normalized token overlap between the
+   * queried name and the firm's existing contacts, with the matters each
+   * match appears on. Read-only and non-blocking.
+   */
+  conflictCheck(name: string): Promise<{
+    query: string;
+    matches: { id: ID; name: string; type: string; caseNumbers: string[] }[];
+  }>;
   updateContact(id: string, patch: Partial<Contact>): Promise<Contact>;
   deleteContact(id: string): Promise<void>;
 

@@ -52,6 +52,7 @@ abbreviated — trust the TypeScript interface `LawleitApi` in `src/lib/data/api
 | PATCH | /cases/:id | `updateCase(id, patch)` | |
 | DELETE | /cases/:id | `deleteCase(id)` | 204 |
 | GET | /contacts | `listContacts()` | |
+| GET | /contacts/conflict-check?name= | `conflictCheck(name)` | token-overlap matches + their case numbers; read-only, non-blocking (V2 ticket 10) |
 | GET | /contacts/:id | `getContact(id)` | |
 | POST | /contacts | `createContact(body)` | |
 | PATCH | /contacts/:id | `updateContact(id, patch)` | |
