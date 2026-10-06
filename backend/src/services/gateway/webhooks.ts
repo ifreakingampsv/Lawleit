@@ -2,7 +2,7 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import type { AuthRepositories } from "../auth/repository.js";
 import { isUniqueViolation } from "../auth/service.js";
 import { HttpError } from "../httpError.js";
-import { PAYMENT_METHODS } from "../payments/repository.js";
+import { contractMethod } from "../payments/repository.js";
 import type { PaymentsService } from "../payments/service.js";
 import type { GatewayAccountService, GatewayCredentials } from "./service.js";
 
@@ -43,12 +43,6 @@ function verifySignature(rawBody: string, webhookSecret: string, signature: stri
   const b = Buffer.from(signature, "utf8");
   // timingSafeEqual throws on length mismatch — map that to "invalid" too.
   return a.length === b.length && timingSafeEqual(a, b);
-}
-
-function mapMethod(method: unknown): string {
-  return typeof method === "string" && (PAYMENT_METHODS as readonly string[]).includes(method)
-    ? method
-    : "card";
 }
 
 /**
@@ -132,7 +126,7 @@ export class GatewayWebhookService {
         await this.payments.recordWithin(tx, firmId, {
           invoiceId: link.invoiceId,
           amount: link.amount,
-          method: mapMethod(body.payload?.payment?.entity?.method),
+          method: contractMethod(body.payload?.payment?.entity?.method),
           trustAccount: false,
         });
         await tx.paymentLinks.update(firmId, link.id, { status: "paid" });

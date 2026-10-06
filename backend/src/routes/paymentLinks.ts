@@ -8,6 +8,7 @@ export type PaymentLinkRoutesOptions = {
 };
 
 const invoiceIdParams = z.object({ id: z.string().uuid("Invalid invoice id") });
+const linkIdParams = z.object({ id: z.string().uuid("Invalid payment link id") });
 
 /**
  * Collect routes (V2 slice 1, ticket 03, docs/API_CONTRACT.md): create a
@@ -40,5 +41,13 @@ export async function paymentLinkRoutes(
   app.get("/invoices/:id/payment-links", async (request) => {
     const { id } = invoiceIdParams.parse(request.params);
     return service().list(requireAuth(request).firm.id, id);
+  });
+
+  // Ticket 05: the reconciliation self-heal (docs/API_CONTRACT.md) — the
+  // server re-fetches the link from the firm's gateway and records the
+  // payment if the provider says paid and no webhook got here first.
+  app.post("/payment-links/:id/sync", async (request) => {
+    const { id } = linkIdParams.parse(request.params);
+    return service().sync(requireAuth(request).firm.id, id);
   });
 }

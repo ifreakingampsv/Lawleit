@@ -81,13 +81,15 @@ async function startFakeRazorpay(
         return;
       }
       if (req.method === "GET" && req.url?.startsWith("/v1/payment_links/")) {
+        const id = req.url.slice("/v1/payment_links/".length);
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(
           JSON.stringify({
-            id: req.url.slice("/v1/payment_links/".length),
+            id,
             short_url: "https://rzp.io/i/fake0",
-            status: "paid",
+            status: id.startsWith("unpaid") ? "created" : "paid",
             amount: 250000,
+            payments: [{ method: "upi" }],
           }),
         );
         return;
@@ -439,5 +441,155 @@ describe("collect — payment links (ticket 03)", () => {
     expect(res.statusCode).toBe(400);
     expect(res.json()).toEqual({ error: GATEWAY_PROVIDER_MESSAGE });
     await app.close();
+  });
+});
+
+describe("reconciliation sync (ticket 05)", () => {
+  let app: FastifyInstance;
+  let mailer: CapturingMailer;
+  let repos: AuthRepositories;
+  let firmA: FirmContext;
+  let firmB: FirmContext;
+  let provider: { url: string; close(): Promise<void>; requests: FakeRequest[] };
+
+  afterEach(async () => {
+    await closeDb();
+    await provider?.close();
+  });
+
+  afterAll(async () => {
+    await closeDb();
+  });
+
+  async function setup(mode: "ok" | "down" = "ok"): Promise<void> {
+    provider = await startFakeRazorpay(mode);
+    mailer = new CapturingMailer();
+    repos = inMemoryAuthRepositories();
+    app = await buildApp(testConfig, {
+      repositories: repos,
+      mailer,
+      gateway: new RazorpayGateway(`${provider.url}/v1`),
+    });
+    firmA = await signupFirm(app, mailer, "owner@firm-a.example", "Aditi");
+    firmB = await signupFirm(app, mailer, "owner@firm-b.example", "Bharat");
+    await connectGateway(app, firmA.token);
+  }
+
+  async function insertLink(
+    firmId: string,
+    invoiceId: string,
+    providerLinkId: string,
+  ): Promise<{ id: string }> {
+    const row = await repos.paymentLinks.create({
+      firmId, invoiceId, provider: "razorpay", providerLinkId,
+      shortUrl: `https://rzp.io/i/${providerLinkId}`, amount: 500000, status: "active",
+    });
+    return { id: row.id };
+  }
+
+  it("a provider-paid link records the payment through the webhook's path and flips the local link; the roll-up rules hold (partial keeps a draft a draft, rolls a sent back to sent)", async () => {
+    await setup();
+    const invoice = await createInvoice(app, firmA.token);
+    const link = await insertLink(firmA.firmId, invoice.id, "link_SYNC1");
+
+    const res = await app.inject({
+      method: "POST", url: `/api/v1/payment-links/${link.id}/sync`, headers: bearer(firmA.token),
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ status: "paid", recorded: true });
+
+    const payments = await repos.payments.listByFirm(firmA.firmId);
+    expect(payments).toHaveLength(1);
+    expect(payments[0]).toMatchObject({
+      invoiceId: invoice.id, amount: 250000, method: "upi",
+      status: "deposited", trustAccount: false,
+    });
+    expect((await repos.paymentLinks.findById(firmA.firmId, link.id))!.status).toBe("paid");
+    // The fake pays 250000 against the 500000 invoice — a PARTIAL payment.
+    // The draft stays a draft (the parity rule, through the sync path too).
+    expect(
+      (await app.inject({ method: "GET", url: `/api/v1/invoices/${invoice.id}`, headers: bearer(firmA.token) })).json() as { status: string },
+    ).toMatchObject({ status: "draft" });
+  });
+
+  it("a second sync is a no-op (the already-paid short circuit, before any provider call)", async () => {
+    await setup();
+    const invoice = await createInvoice(app, firmA.token);
+    const link = await insertLink(firmA.firmId, invoice.id, "link_SYNC2");
+    for (const expected of [{ status: "paid", recorded: true }, { status: "paid", recorded: false }]) {
+      const res = await app.inject({
+        method: "POST", url: `/api/v1/payment-links/${link.id}/sync`, headers: bearer(firmA.token),
+      });
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toEqual(expected);
+    }
+    expect(await repos.payments.listByFirm(firmA.firmId)).toHaveLength(1);
+  });
+
+  it("the webhook's dedupe wall holds for sync too: a pre-existing sync event writes nothing", async () => {
+    await setup();
+    const invoice = await createInvoice(app, firmA.token);
+    const link = await insertLink(firmA.firmId, invoice.id, "link_SYNC3");
+    await repos.gatewayEvents.create({
+      firmId: firmA.firmId, provider: "razorpay",
+      providerEventId: "sync:link_SYNC3", eventType: "payment_link.paid",
+    });
+    const res = await app.inject({
+      method: "POST", url: `/api/v1/payment-links/${link.id}/sync`, headers: bearer(firmA.token),
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ status: "paid", recorded: false });
+    expect(await repos.payments.listByFirm(firmA.firmId)).toHaveLength(0);
+  });
+
+  it("a provider-unpaid link is ledger-quiet and changes nothing", async () => {
+    await setup();
+    const invoice = await createInvoice(app, firmA.token);
+    const link = await insertLink(firmA.firmId, invoice.id, "unpaid_link_SYNC4");
+    const res = await app.inject({
+      method: "POST", url: `/api/v1/payment-links/${link.id}/sync`, headers: bearer(firmA.token),
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ status: "active", recorded: false });
+    expect(await repos.payments.listByFirm(firmA.firmId)).toHaveLength(0);
+    expect((await repos.paymentLinks.findById(firmA.firmId, link.id))!.status).toBe("active");
+  });
+
+  it("unknown, foreign, and not-connected cases: 404/404/503 with the owner-step copy", async () => {
+    await setup();
+    const invoice = await createInvoice(app, firmA.token);
+    const link = await insertLink(firmA.firmId, invoice.id, "link_SYNC5");
+    const invoiceB = await createInvoice(app, firmB.token);
+    const foreignLink = await insertLink(firmB.firmId, invoiceB.id, "link_SYNC6");
+
+    const unknown = await app.inject({
+      method: "POST", url: `/api/v1/payment-links/00000000-0000-4000-8000-000000000000/sync`,
+      headers: bearer(firmA.token),
+    });
+    expect(unknown.statusCode).toBe(404);
+
+    const foreign = await app.inject({
+      method: "POST", url: `/api/v1/payment-links/${foreignLink.id}/sync`, headers: bearer(firmA.token),
+    });
+    expect(foreign.statusCode).toBe(404);
+    expect(await repos.payments.listByFirm(firmB.firmId)).toHaveLength(0);
+
+    const notConnected = await app.inject({
+      method: "POST", url: `/api/v1/payment-links/${link.id}/sync`, headers: bearer(firmB.token),
+    });
+    expect(notConnected.statusCode).toBe(503);
+    expect(notConnected.json()).toEqual({ error: PAYMENT_LINK_NOT_CONNECTED });
+  });
+
+  it("a provider failure surfaces as the clean 502 envelope", async () => {
+    await setup("down");
+    const invoice = await createInvoice(app, firmA.token);
+    const link = await insertLink(firmA.firmId, invoice.id, "link_SYNC7");
+    const res = await app.inject({
+      method: "POST", url: `/api/v1/payment-links/${link.id}/sync`, headers: bearer(firmA.token),
+    });
+    expect(res.statusCode).toBe(502);
+    expect(res.json()).toEqual({ error: PAYMENT_LINK_PROVIDER_FAILED });
+    expect(await repos.payments.listByFirm(firmA.firmId)).toHaveLength(0);
   });
 });

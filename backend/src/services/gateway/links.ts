@@ -1,5 +1,8 @@
 import type { AuthRepositories } from "../auth/repository.js";
+import { isUniqueViolation } from "../auth/service.js";
 import { HttpError } from "../httpError.js";
+import { contractMethod } from "../payments/repository.js";
+import type { PaymentsService } from "../payments/service.js";
 import { GatewayProviderError, type GatewayService } from "./provider.js";
 import type { ApiPaymentLink } from "./repository.js";
 import { toApiPaymentLink } from "./repository.js";
@@ -13,6 +16,14 @@ export const PAYMENT_LINK_PAID_MESSAGE = "Invoice is already paid";
 /** Shown (as a 502) when the provider rejects or errors — clean, action-less envelope. */
 export const PAYMENT_LINK_PROVIDER_FAILED =
   "The payment gateway did not accept the link — try again shortly";
+
+/** The sync outcome (docs/API_CONTRACT.md POST /payment-links/:id/sync). */
+export interface SyncOutcome {
+  /** The link's contract status after the sync. */
+  status: string;
+  /** True when this sync recorded the payment (a prior sync/webhook did not). */
+  recorded: boolean;
+}
 
 /**
  * The provider's link status → the contract's link status. Razorpay's
@@ -49,6 +60,7 @@ export class PaymentLinkService {
     private readonly repos: AuthRepositories,
     private readonly accounts: GatewayAccountService,
     private readonly gateway: GatewayService,
+    private readonly payments?: PaymentsService,
     private readonly now: () => Date = () => new Date(),
   ) {}
 
@@ -102,6 +114,60 @@ export class PaymentLinkService {
     if (!invoice) throw new HttpError(404, "Invoice not found");
     const rows = await this.repos.paymentLinks.listByInvoice(firmId, invoiceId);
     return rows.map(toApiPaymentLink);
+  }
+
+  /**
+   * POST /payment-links/:id/sync (ticket 05) — the cold-start self-heal: the
+   * server re-fetches the link from the provider and, when it says paid but
+   * no payment was recorded (a webhook lost while the API was waking),
+   * records the payment through the SAME service path as the webhook
+   * (recordWithin — roll-up and trust hook included, trust flag hard-wired
+   * false). Idempotency shares the webhook's wall: the sync's event row dies
+   * on the unique (provider, provider_event_id) index if a concurrent sync
+   * or webhook got there first, and the already-paid link short-circuits
+   * before any provider call. Non-paid provider statuses change nothing.
+   */
+  async sync(firmId: string, linkId: string): Promise<SyncOutcome> {
+    if (!this.payments) throw new Error("sync requires the payments service (ticket 05 wiring)");
+    const credentials = await this.credentials(firmId);
+    try {
+      return await this.repos.transaction(async (tx) => {
+        const link = await tx.paymentLinks.findById(firmId, linkId);
+        if (!link) throw new HttpError(404, "Payment link not found");
+        if (link.status === "paid") return { status: "paid", recorded: false };
+
+        const providerLink = await this.gateway
+          .fetchLink(credentials, link.providerLinkId)
+          .catch((error: unknown) => {
+            if (error instanceof GatewayProviderError) {
+              throw new HttpError(502, PAYMENT_LINK_PROVIDER_FAILED);
+            }
+            throw error;
+          });
+        const status = contractStatus(providerLink.status);
+        if (status !== "paid") return { status, recorded: false };
+
+        await tx.gatewayEvents.create({
+          firmId,
+          provider: credentials.provider,
+          providerEventId: `sync:${link.providerLinkId}`,
+          eventType: "payment_link.paid",
+        });
+        await this.payments!.recordWithin(tx, firmId, {
+          invoiceId: link.invoiceId,
+          amount: providerLink.amount,
+          method: contractMethod(providerLink.method),
+          trustAccount: false,
+        });
+        await tx.paymentLinks.update(firmId, link.id, { status: "paid" });
+        return { status: "paid", recorded: true };
+      });
+    } catch (error) {
+      // Lost a race against a concurrent sync or the webhook: the payment
+      // exists, this call changes nothing.
+      if (isUniqueViolation(error)) return { status: "paid", recorded: false };
+      throw error;
+    }
   }
 
   /**

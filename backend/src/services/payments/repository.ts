@@ -15,6 +15,18 @@ export const PAYMENT_METHODS = ["card", "echeck", "wallet", "upi", "netbanking"]
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
 /**
+ * A provider-reported instrument (a webhook payload's or a fetched link's
+ * payment method) mapped into the contract's vocabulary — anything the
+ * provider reports outside it lands on "card", the contract's default
+ * (the reference's `b.method ?? "card"`).
+ */
+export function contractMethod(method: unknown): string {
+  return typeof method === "string" && (PAYMENT_METHODS as readonly string[]).includes(method)
+    ? method
+    : "card";
+}
+
+/**
  * The status vocabulary of the API contract (types.ts Payment.status). V1
  * records always land "deposited" (server-managed); "pending"/"failed" exist
  * for the V2 gateway seam, and the roll-up's `<> 'failed'` filter mirrors the

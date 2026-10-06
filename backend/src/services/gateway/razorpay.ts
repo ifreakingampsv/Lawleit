@@ -61,11 +61,20 @@ export class RazorpayGateway implements GatewayService {
     if (!res.ok) throw new GatewayProviderError(`payment gateway answered ${res.status}`);
     const data = (await res.json()) as {
       id?: string; short_url?: string; status?: string; amount?: number;
+      payments?: { method?: string }[];
     };
     if (!data.id || !data.short_url || !data.status || typeof data.amount !== "number") {
       throw new GatewayProviderError("payment gateway answered an unexpected shape");
     }
-    return { id: data.id, shortUrl: data.short_url, status: data.status as ProviderLink["status"], amount: data.amount };
+    return {
+      id: data.id,
+      shortUrl: data.short_url,
+      status: data.status as ProviderLink["status"],
+      amount: data.amount,
+      // The instrument of the link's first payment, when the provider embeds
+      // its payments (it does on a paid link); absent otherwise.
+      method: data.payments?.[0]?.method ?? null,
+    };
   }
 }
 

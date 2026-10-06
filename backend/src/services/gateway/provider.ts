@@ -36,6 +36,10 @@ export interface ProviderLink {
   status: ProviderLinkStatus;
   /** Integer paise, as the provider stored it. */
   amount: number;
+  /** The instrument the link's payment used (upi/netbanking/…), when the
+   * provider reports one — the sync path (ticket 05) maps it into the
+   * contract's method vocabulary; absent on a never-paid link. */
+  method?: string | null;
 }
 
 /** Thrown by implementations on any provider-side failure (HTTP or network). */

@@ -13,7 +13,7 @@ tier's sleeping API.
 
 **Status:** ready-for-agent
 
-- [ ] `POST /payment-links/:id/sync`: firm-scoped (cross-firm 404); no connected gateway 503; fetches status via the GatewayService seam
-- [ ] Paid-but-unrecorded → payment recorded through the webhook-identical path (method mapping, trust flag false, roll-up) and link marked paid; already-recorded → no-op; outcome reported in the response
-- [ ] Idempotent under concurrent/duplicate syncs (event ledger dedupe; DB twin asserts one payment row)
-- [ ] Route tests with the fake provider (unpaid link, paid link, provider unreachable surfaces cleanly) + DB twins; full suites green (backend WITHOUT DATABASE_URL, app, smoke, typecheck)
+- [x] `POST /payment-links/:id/sync`: firm-scoped (cross-firm 404); no connected gateway 503; fetches status via the GatewayService seam
+- [x] Paid-but-unrecorded → payment recorded through the webhook-identical path (method mapping, trust flag false, roll-up) and link marked paid; already-recorded → no-op; outcome reported in the response (`{ status, recorded }`)
+- [x] Idempotent under concurrent/duplicate syncs (event ledger dedupe; DB twin asserts one payment row — the webhook twin proves the 23505 wall on real Postgres, and the route suite proves the pre-existing-event no-op)
+- [x] Route tests with the fake provider (unpaid link, paid link, provider unreachable surfaces cleanly) + DB twins; full suites green (backend WITHOUT DATABASE_URL, app, smoke, typecheck) — backend 279/279, app 70/70, smoke 65/65, typecheck clean

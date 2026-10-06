@@ -141,7 +141,7 @@ export async function protectedRoutes(
   const gateway = options.gateway ?? createRazorpayGateway();
   const paymentLinkService =
     repos && gatewayAccountService
-      ? new PaymentLinkService(repos, gatewayAccountService, gateway)
+      ? new PaymentLinkService(repos, gatewayAccountService, gateway, paymentsService ?? undefined)
       : null;
 
   // The guard guarantees services exist whenever a handler runs; the helper
